@@ -1808,7 +1808,7 @@
       if (!session) { showScreen('screen-login'); return; }
       const { data: profile, error } = await sb
         .from('profiles')
-        .select('id,name,email,role,club_id,category_id,avatar_url,phone,bio')
+        .select('id,name,email,role,club_id,category_id,extra_categories,avatar_url,phone,bio')
         .eq('id', session.user.id)
         .single();
       if (error || !profile) {
@@ -1831,7 +1831,11 @@
         document.getElementById('drawer-role').textContent = '🔑 Administrador';
       } else {
         badge.style.display = 'none';
-        document.getElementById('drawer-role').textContent = '🎾 Membro';
+        const extras = Array.isArray(profile.extra_categories) ? profile.extra_categories : [];
+        const allCatIds = profile.category_id ? [profile.category_id, ...extras] : extras;
+        document.getElementById('drawer-role').textContent = (allCatIds.length > 1)
+          ? `\ud83c\udfbe Membro (${allCatIds.length} categorias)`
+          : '\ud83c\udfbe Membro';
       }
 
       showScreen(currentRole === 'admin' ? 'screen-admin' : 'screen-member');
@@ -2203,27 +2207,37 @@
       const greet = document.getElementById('greeting-title');
       if (greet) greet.textContent = `Olá, ${first}! 👋`;
 
-      // Sua jornada (se tiver category_id atribuida)
-      const catId = currentUser.category_id;
-      const cat = catId ? (dashboardData.categories || []).find(x => x.id === catId) : null;
-      const peers = catId ? (dashboardData.profilesByCategory[catId] || 0) : 0;
+      // Sua jornada — todas as categorias do user (principal + extras)
+      const catIds = [];
+      if (currentUser.category_id) catIds.push(currentUser.category_id);
+      const extras = Array.isArray(currentUser.extra_categories) ? currentUser.extra_categories : [];
+      extras.forEach(e => { if (e && !catIds.includes(e)) catIds.push(e); });
+
       const wrap = document.getElementById('member-cat-content');
-      if (wrap) {
-        if (cat) {
-          const short = cat.name.replace(/^Cat\.\s*/i, '');
-          wrap.innerHTML = `
-            <div class="my-cat-card">
-              <div class="my-cat-emblem">${short}</div>
-              <div class="my-cat-info">
-                <div class="my-cat-name">${cat.name}</div>
-                <div class="my-cat-meta">${peers} jogador${peers === 1 ? '' : 'es'} nesta categoria</div>
-              </div>
-              <button class="btn-pill" style="padding:8px 14px;font-size:12px" onclick="goToCategorySelector()">Ver chave</button>
-            </div>
-          `;
-        }
-        // Sem categoria: mantem o empty-card padrao do HTML
+      if (!wrap) return;
+      if (catIds.length === 0) {
+        // Mantem o empty-card padrao
+        return;
       }
+
+      const cards = catIds.map(cid => {
+        const cat = (dashboardData.categories || []).find(x => x.id === cid);
+        if (!cat) return '';
+        const short = cat.name.replace(/^Cat\.\s*/i, '');
+        const peers = dashboardData.profilesByCategory[cid] || 0;
+        return `
+          <div class="my-cat-card" style="margin-bottom:8px">
+            <div class="my-cat-emblem">${short}</div>
+            <div class="my-cat-info">
+              <div class="my-cat-name">${cat.name}</div>
+              <div class="my-cat-meta">${peers} jogador${peers === 1 ? '' : 'es'} nesta categoria</div>
+            </div>
+            <button class="btn-pill" style="padding:8px 14px;font-size:12px" onclick="goToCategorySelector()">Ver chave</button>
+          </div>
+        `;
+      }).filter(Boolean).join('');
+
+      wrap.innerHTML = cards || wrap.innerHTML;
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
