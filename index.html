@@ -2543,15 +2543,19 @@
       `;
     }
 
+    let _liveSubActive = false;
     function subscribeLiveMatches() {
+      if (_liveSubActive && _liveSub) return; // ja subscribed, evita leak
       try {
-        if (_liveSub) { try { sb.removeChannel(_liveSub); } catch (e) {} }
+        if (_liveSub) { try { sb.removeChannel(_liveSub); _liveSubActive = false; } catch (e) {} }
         _liveSub = sb.channel('live-matches-rt')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, _payload => {
             // recarregar sem causar muitas chamadas
             loadLiveMatches();
           })
-          .subscribe();
+          .subscribe((status) => {
+            _liveSubActive = (status === 'SUBSCRIBED');
+          });
       } catch (e) { console.warn('subscribe live error', e); }
     }
 
@@ -3018,6 +3022,10 @@
       if (!_finalWinner) { document.getElementById('finalize-live-msg').textContent = 'Selecione quem venceu'; return; }
       const m = _liveEditing.m;
       const winnerName = (_finalWinner === 1 || _finalWinner === 'wo') ? m.player1_name : m.player2_name;
+      if (!winnerName || !winnerName.trim()) {
+        document.getElementById('finalize-live-msg').textContent = 'Vencedor sem nome. Cancele e tente novamente.';
+        return;
+      }
       // Le score atual e injeta p1_status/p2_status — isso e o que o bracket renderer
       // usa pra saber quem venceu e propagar pra rodada seguinte.
       const curScore = _parseScore(m.score);
@@ -3233,12 +3241,16 @@
     // (onde o jogador participou de fato) tambem nao sao alteradas.
     async function propagateWinnerChange(catKey, oldName, newName, currentRoundCode) {
       if (!oldName || !newName || oldName === newName) return;
+      if (!currentRoundCode || !ROUND_TO_INT[currentRoundCode.toLowerCase()]) {
+        console.warn('propagateWinnerChange: invalid roundCode', currentRoundCode);
+        return;
+      }
       const dbCatId = CAT_MOCK_TO_DB[catKey];
       if (!dbCatId) return;
       const { data: brs } = await sb.from('brackets').select('id').eq('category_id', dbCatId).limit(1);
       if (!brs || !brs.length) return;
       const bracketId = brs[0].id;
-      const currentRoundInt = ROUND_TO_INT[(currentRoundCode || '').toLowerCase()] || 0;
+      const currentRoundInt = ROUND_TO_INT[currentRoundCode.toLowerCase()];
       try {
         await sb.from('matches')
           .update({ player1_name: newName })
@@ -4323,6 +4335,9 @@
         if (!file.type.startsWith('image/')) throw new Error('Selecione uma imagem');
         if (file.size > 8 * 1024 * 1024) throw new Error('Imagem grande demais (máx 8MB)');
         const dataUrl = await _resizeImageToDataUrl(file, 400);
+        if (dataUrl.length > 500 * 1024) {
+          throw new Error('Foto processada ficou muito grande. Tente uma imagem mais simples.');
+        }
         _renderProfileAvatar(dataUrl, currentUser.name);
         // Guarda temporariamente — só persiste no Salvar
         document.getElementById('profile-avatar-preview').dataset.pendingDataUrl = dataUrl;
@@ -4631,7 +4646,7 @@
       const statusEl = isBye
         ? ''
         : player.status
-          ? `<span class="player-status ${player.status}">${player.status === 'win' ? '✓' : player.status === 'loss' ? '✕' : '!'}</span>`
+          ? `<span class="player-status ${player.status}">${player.status === 'win' ? '✓' : player.status === 'loss' ? '✕' : player.status === 'wo' ? 'WO' : '?'}</span>`
           : '';
 
       const seedTag = player.seed ? `<span class="seed-tag">[${player.seed}]</span>` : '';
@@ -4708,6 +4723,7 @@
       if (currentRole !== 'admin') return;
       const m = _findMatch(catKey, round, matchId);
       if (!m) { alert('Jogo nao encontrado'); return; }
+      if (!m.p1 || !m.p2) { alert('Jogo incompleto (faltam jogadores)'); return; }
       const prevWinner = (m.p1 && m.p1.status === 'win') ? m.p1.name : ((m.p2 && m.p2.status === 'win') ? m.p2.name : null);
       _scoreEditing = { catKey, round, matchId, m, previousWinner: prevWinner };
 
@@ -4825,6 +4841,10 @@
       const dbId = _matchDbIndex[_matchIdxKey(_scoreEditing.catKey, _scoreEditing.round, _scoreEditing.matchId)];
       if (!dbId) { errEl.textContent = 'Match não encontrado no banco.'; return; }
 
+      if (!m.id || !_scoreEditing.round) {
+        errEl.textContent = 'Informações do jogo incompletas.';
+        return;
+      }
       // Nome draft padrao da rodada (pra reverter a propagação na proxima rodada)
       const draftName = `Vencedor #${m.id} ${_scoreEditing.round.toUpperCase()}`;
 
@@ -4897,6 +4917,10 @@
       const newWinnerName = (_scoreWinner === 1 || _scoreWinner === 'wo2')
         ? _name1
         : _name2;
+      if (!newWinnerName || !newWinnerName.trim()) {
+        errEl.textContent = 'Nome do vencedor não resolvido. Feche e reabra o placar.';
+        return;
+      }
       const oldWinnerName = (_scoreEditing.previousWinner || null);
       const p1Status = m.p1.status;
       const p2Status = m.p2.status;
