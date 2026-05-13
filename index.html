@@ -1513,6 +1513,7 @@
     }
     .up-vs { color: var(--text-dim); font-weight: 400; font-size: 11px; }
     .up-card.is-clickable { cursor: pointer; transition: transform 0.1s, border-color 0.15s; }
+    .up-card-row { display: flex; gap: 12px; align-items: center; }
     .up-card.is-clickable:hover { border-color: rgba(193,242,18,0.35); transform: translateY(-1px); }
     .up-edit { margin-left: auto; font-size: 11px; opacity: 0.7; }
     .sr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1524,6 +1525,58 @@
       cursor: pointer;
     }
     .sched-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    .schedule-btn {
+      background: rgba(193,242,18,0.08);
+      color: var(--accent);
+      border: 1px dashed rgba(193,242,18,0.4);
+    }
+    .schedule-btn:hover { background: rgba(193,242,18,0.14); }
+
+    /* Lista de jogos pra agendar em lote */
+    .sch-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; margin-top: 10px; }
+    .sch-row {
+      display: flex; gap: 8px; align-items: center;
+      background: var(--field, rgba(255,255,255,0.04));
+      border: 1px solid var(--field-border, rgba(255,255,255,0.08));
+      border-radius: 12px; padding: 10px 12px;
+    }
+    .sch-row-body { flex: 1; min-width: 0; }
+    .sch-row-title { font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--text); }
+    .sch-row-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .sch-time-input {
+      width: 84px; height: 38px;
+      background: var(--bg, #0a0a0a); color: var(--text);
+      border: 1px solid var(--field-border, rgba(255,255,255,0.12));
+      border-radius: 8px; padding: 0 8px; font-size: 13px;
+    }
+    .sch-add-btn {
+      height: 38px; padding: 0 12px;
+      background: var(--accent); color: #000;
+      border: none; border-radius: 8px;
+      font-weight: 800; font-size: 12px; cursor: pointer;
+    }
+    .sch-add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Botão Iniciar Ao Vivo no card upcoming (admin) */
+    .up-actions {
+      display: flex; gap: 8px; margin-top: 10px;
+    }
+    .up-start-btn {
+      flex: 1; padding: 8px 12px;
+      background: var(--accent); color: #000;
+      border: none; border-radius: 10px;
+      font-weight: 800; font-size: 12px; cursor: pointer;
+      letter-spacing: 0.04em;
+    }
+    .up-start-btn:hover { filter: brightness(1.1); }
+    .up-edit-btn {
+      padding: 8px 12px;
+      background: transparent; color: var(--text-dim);
+      border: 1px solid var(--border, rgba(255,255,255,0.12));
+      border-radius: 10px;
+      font-size: 12px; cursor: pointer;
+    }
     .start-live-btn {
       width: 100%; padding: 14px; border-radius: 14px;
       background: var(--accent); color: var(--bg-0);
@@ -1905,6 +1958,9 @@
         <button class="start-live-btn" id="btn-start-live" style="display:none" onclick="openStartLiveModal()">
           + Iniciar jogo ao vivo
         </button>
+        <button class="start-live-btn schedule-btn" id="btn-schedule-day" style="display:none;margin-top:8px" onclick="openScheduleDayModal()">
+          📅 Programar jogos do dia
+        </button>
 
         <div id="live-matches-list">
           <div class="live-empty">
@@ -2064,6 +2120,8 @@
       document.querySelectorAll('.nav-item').forEach(it => it.classList.remove('is-active'));
       const startBtn = document.getElementById('btn-start-live');
       if (startBtn) startBtn.style.display = currentRole === 'admin' ? '' : 'none';
+      const schedBtn = document.getElementById('btn-schedule-day');
+      if (schedBtn) schedBtn.style.display = currentRole === 'admin' ? '' : 'none';
       await loadLiveMatches();
       subscribeLiveMatches();
     }
@@ -2151,23 +2209,28 @@
       const parsed = parseScheduledWhen(m.scheduled_when);
       const isTbd = opts.noTime || !parsed.time;
       const timeLabel = isTbd ? 'A<br>definir' : parsed.time.replace(':', 'h');
-      const adminClick = (currentRole === 'admin') ? `onclick="openScheduleMatchModal('${m.id}')"` : '';
-      const editIcon = (currentRole === 'admin') ? `<span class="up-edit" aria-hidden="true">✏️</span>` : '';
+      const adminActions = (currentRole === 'admin') ? `
+        <div class="up-actions">
+          <button class="up-start-btn" onclick="startScheduledMatch('${m.id}')">▶ INICIAR AO VIVO</button>
+          <button class="up-edit-btn" onclick="openScheduleMatchModal('${m.id}')">✏️ Editar</button>
+        </div>` : '';
       return `
-        <article class="up-card${currentRole === 'admin' ? ' is-clickable' : ''}" ${adminClick}>
-          <div class="up-time${isTbd ? ' is-tbd' : ''}">${timeLabel}</div>
-          <div class="up-body">
-            <div class="up-meta">
-              ${cat ? `<span class="up-chip">${cat}</span>` : ''}
-              <span class="up-round">${round || ''}${m.match_no ? (round ? ' · ' : '') + '#' + m.match_no : ''}</span>
-              ${editIcon}
-            </div>
-            <div class="up-players">
-              <span class="up-p">${m.player1_name || 'Jogador 1'}</span>
-              <span class="up-vs">vs</span>
-              <span class="up-p">${m.player2_name || 'Jogador 2'}</span>
+        <article class="up-card">
+          <div class="up-card-row">
+            <div class="up-time${isTbd ? ' is-tbd' : ''}">${timeLabel}</div>
+            <div class="up-body">
+              <div class="up-meta">
+                ${cat ? `<span class="up-chip">${cat}</span>` : ''}
+                <span class="up-round">${round || ''}${m.match_no ? (round ? ' · ' : '') + '#' + m.match_no : ''}</span>
+              </div>
+              <div class="up-players">
+                <span class="up-p">${m.player1_name || 'Jogador 1'}</span>
+                <span class="up-vs">vs</span>
+                <span class="up-p">${m.player2_name || 'Jogador 2'}</span>
+              </div>
             </div>
           </div>
+          ${adminActions}
         </article>`;
     }
 
@@ -2472,6 +2535,152 @@
         // recarrega lista
         loadLiveMatches();
       } catch (e) { msgEl.textContent = 'Erro: ' + (e.message || ''); }
+    }
+
+    // ===========================
+    // Admin: iniciar AO VIVO jogo ja agendado
+    // ===========================
+    async function startScheduledMatch(matchId) {
+      if (currentRole !== 'admin') return;
+      try {
+        const { error } = await sb.from('matches').update({
+          status: 'in_progress',
+          score: JSON.stringify({ p1: [null,null,null], p2: [null,null,null] }),
+          reported_at: new Date().toISOString(),
+        }).eq('id', matchId);
+        if (error) throw error;
+        loadLiveMatches();
+      } catch (e) {
+        alert('Erro ao iniciar: ' + (e.message || ''));
+      }
+    }
+
+    // ===========================
+    // Modal: Programar jogos do dia (admin, em lote)
+    // ===========================
+    let _schDayStep = 'bracket';
+
+    function openScheduleDayModal() {
+      if (currentRole !== 'admin') return;
+      const cats = (dashboardData && dashboardData.categories) || [];
+      const opts = cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      document.getElementById('sch-day-cat').innerHTML = opts;
+      document.getElementById('sch-avulso-cat').innerHTML = opts;
+      document.getElementById('sch-avulso-p1').value = '';
+      document.getElementById('sch-avulso-p2').value = '';
+      document.getElementById('sch-avulso-time').value = '';
+      document.getElementById('sch-day-msg').textContent = '';
+      document.getElementById('sch-day-bd').classList.add('is-open');
+      document.getElementById('sch-day-modal').classList.add('is-open');
+      schDayStep('bracket');
+    }
+    function closeScheduleDayModal() {
+      document.getElementById('sch-day-bd').classList.remove('is-open');
+      document.getElementById('sch-day-modal').classList.remove('is-open');
+    }
+    function schDayStep(step) {
+      _schDayStep = step;
+      document.getElementById('btn-sch-bracket').classList.toggle('btn-secondary', step !== 'bracket');
+      document.getElementById('btn-sch-bracket').classList.toggle('btn-primary', step === 'bracket');
+      document.getElementById('btn-sch-avulso').classList.toggle('btn-secondary', step !== 'avulso');
+      document.getElementById('btn-sch-avulso').classList.toggle('btn-primary', step === 'avulso');
+      document.getElementById('sch-step-bracket').style.display = step === 'bracket' ? '' : 'none';
+      document.getElementById('sch-step-avulso').style.display = step === 'avulso' ? '' : 'none';
+      if (step === 'bracket') renderScheduleDayList();
+    }
+    function _todayDateStr() {
+      const t = new Date();
+      return t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+    }
+    async function renderScheduleDayList() {
+      const catId = document.getElementById('sch-day-cat').value;
+      const roundCode = document.getElementById('sch-day-round').value;
+      const list = document.getElementById('sch-day-list');
+      if (!catId) { list.innerHTML = '<div class="sm-sub">Selecione uma categoria</div>'; return; }
+      list.innerHTML = '<div class="sm-sub">Carregando…</div>';
+      const { data: brackets } = await sb.from('brackets').select('id').eq('category_id', catId).limit(1);
+      if (!brackets || !brackets.length) { list.innerHTML = '<div class="sm-sub">Nenhum bracket nessa categoria</div>'; return; }
+      const bracketId = brackets[0].id;
+      const { data: matches, error } = await sb.from('matches')
+        .select('id, match_no, player1_name, player2_name, status, is_bye, scheduled_when')
+        .eq('bracket_id', bracketId)
+        .eq('round_code', roundCode)
+        .order('match_no');
+      if (error) { list.innerHTML = '<div class="sm-sub">Erro: ' + error.message + '</div>'; return; }
+      const avail = (matches || []).filter(m =>
+        m.status !== 'completed' && m.status !== 'in_progress' &&
+        !m.is_bye && m.player1_name && m.player2_name &&
+        m.player1_name !== 'BYE' && m.player2_name !== 'BYE'
+      );
+      if (!avail.length) {
+        list.innerHTML = '<div class="sm-sub">Nenhum jogo disponível nessa rodada.</div>';
+        return;
+      }
+      list.innerHTML = avail.map(m => {
+        const parsed = parseScheduledWhen(m.scheduled_when);
+        const curTime = parsed.time || '';
+        return `
+        <div class="sch-row" data-match-id="${m.id}">
+          <div class="sch-row-body">
+            <div class="sch-row-title">#${m.match_no} · ${m.player1_name} vs ${m.player2_name}</div>
+            ${m.scheduled_when ? `<div class="sch-row-sub">Atual: ${m.scheduled_when}</div>` : ''}
+          </div>
+          <input type="time" class="sch-time-input" value="${curTime}" id="sch-time-${m.id}">
+          <button class="sch-add-btn" onclick="scheduleBracketMatchToday('${m.id}')">Agendar</button>
+        </div>`;
+      }).join('');
+    }
+    async function scheduleBracketMatchToday(matchId) {
+      const timeEl = document.getElementById('sch-time-' + matchId);
+      const time = (timeEl.value || '').trim();
+      if (!time) { document.getElementById('sch-day-msg').style.color = 'var(--loss)'; document.getElementById('sch-day-msg').textContent = 'Informe um horário'; return; }
+      const when = fmtScheduledWhen(_todayDateStr(), time);
+      try {
+        const { error } = await sb.from('matches').update({ scheduled_when: when }).eq('id', matchId);
+        if (error) throw error;
+        // Feedback inline + remove row da lista
+        const row = document.querySelector(`.sch-row[data-match-id="${matchId}"]`);
+        if (row) { row.style.opacity = '0.5'; row.querySelector('.sch-add-btn').textContent = '✓ Agendado'; row.querySelector('.sch-add-btn').disabled = true; }
+        document.getElementById('sch-day-msg').style.color = 'var(--accent)';
+        document.getElementById('sch-day-msg').textContent = 'Agendado pra ' + time + '!';
+        loadLiveMatches();
+      } catch (e) {
+        document.getElementById('sch-day-msg').style.color = 'var(--loss)';
+        document.getElementById('sch-day-msg').textContent = 'Erro: ' + (e.message || '');
+      }
+    }
+    async function scheduleAvulsoMatchToday() {
+      const p1 = document.getElementById('sch-avulso-p1').value.trim();
+      const p2 = document.getElementById('sch-avulso-p2').value.trim();
+      const time = document.getElementById('sch-avulso-time').value.trim();
+      const catId = document.getElementById('sch-avulso-cat').value;
+      const msgEl = document.getElementById('sch-day-msg');
+      msgEl.style.color = 'var(--loss)';
+      if (!p1 || !p2) { msgEl.textContent = 'Informe os 2 jogadores'; return; }
+      if (!time) { msgEl.textContent = 'Informe o horário'; return; }
+      const { data: brackets } = await sb.from('brackets').select('id').eq('category_id', catId).limit(1);
+      if (!brackets || !brackets.length) { msgEl.textContent = 'Categoria sem bracket'; return; }
+      try {
+        const { error } = await sb.from('matches').insert({
+          bracket_id: brackets[0].id,
+          round_code: 'live',
+          match_no: Date.now() % 100000,
+          player1_name: p1,
+          player2_name: p2,
+          status: 'scheduled',
+          scheduled_when: fmtScheduledWhen(_todayDateStr(), time),
+          score: JSON.stringify({ p1: [null,null,null], p2: [null,null,null] }),
+        });
+        if (error) throw error;
+        msgEl.style.color = 'var(--accent)';
+        msgEl.textContent = 'Jogo avulso agendado pra ' + time + '!';
+        document.getElementById('sch-avulso-p1').value = '';
+        document.getElementById('sch-avulso-p2').value = '';
+        document.getElementById('sch-avulso-time').value = '';
+        loadLiveMatches();
+      } catch (e) {
+        msgEl.textContent = 'Erro: ' + (e.message || '');
+      }
     }
 
     // ===========================
@@ -4513,6 +4722,54 @@
     </div>
   </div>
 
+  <!-- ===== Modal: Programar jogos do dia (admin) ===== -->
+  <div class="score-modal-backdrop" id="sch-day-bd" onclick="closeScheduleDayModal()"></div>
+  <div class="score-modal" id="sch-day-modal" role="dialog" aria-modal="true">
+    <div class="score-modal-card" style="max-width:560px">
+      <h3>Programar jogos do dia</h3>
+      <div class="sm-sub">Adicione os jogos com horário. Os membros vão ver na seção PRÓXIMOS HOJE.</div>
+      <div style="display:flex;gap:8px;margin:14px 0">
+        <button id="btn-sch-bracket" class="btn-primary" style="flex:1" onclick="schDayStep('bracket')">Da chave</button>
+        <button id="btn-sch-avulso" class="btn-secondary" style="flex:1" onclick="schDayStep('avulso')">Avulso</button>
+      </div>
+
+      <!-- STEP: da chave (em lote) -->
+      <div id="sch-step-bracket">
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label class="sr-label" style="display:block;margin-bottom:6px">Categoria</label>
+            <select id="sch-day-cat" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px" onchange="renderScheduleDayList()"></select>
+          </div>
+          <div style="flex:1">
+            <label class="sr-label" style="display:block;margin-bottom:6px">Rodada</label>
+            <select id="sch-day-round" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px" onchange="renderScheduleDayList()">
+              <option value="r64">R64</option><option value="r32">R32</option>
+              <option value="r16">R16</option><option value="qf">QF</option>
+              <option value="sf">SF</option><option value="f">F</option>
+            </select>
+          </div>
+        </div>
+        <div id="sch-day-list" class="sch-list"></div>
+      </div>
+
+      <!-- STEP: avulso -->
+      <div id="sch-step-avulso" style="display:none">
+        <div class="field" style="margin-top:10px"><label class="sr-label" style="display:block;margin-bottom:6px">Jogador 1</label><input id="sch-avulso-p1" placeholder="Nome do jogador 1" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></div>
+        <div class="field" style="margin-top:8px"><label class="sr-label" style="display:block;margin-bottom:6px">Jogador 2</label><input id="sch-avulso-p2" placeholder="Nome do jogador 2" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <div style="flex:1"><label class="sr-label" style="display:block;margin-bottom:6px">Categoria</label><select id="sch-avulso-cat" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></select></div>
+          <div style="flex:0 0 130px"><label class="sr-label" style="display:block;margin-bottom:6px">Horário</label><input type="time" id="sch-avulso-time" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></div>
+        </div>
+        <button class="btn-primary" style="width:100%;margin-top:14px" onclick="scheduleAvulsoMatchToday()">Agendar jogo avulso</button>
+      </div>
+
+      <div id="sch-day-msg" class="sm-error" style="margin-top:10px"></div>
+      <div class="sm-actions" style="margin-top:10px">
+        <button class="btn-secondary" onclick="closeScheduleDayModal()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Modal: Agendar jogo (admin) ===== -->
   <div class="score-modal-backdrop" id="sched-modal-bd" onclick="closeScheduleMatchModal()"></div>
   <div class="score-modal" id="sched-modal" role="dialog" aria-modal="true">
@@ -4652,10 +4909,4 @@
       <div class="sm-error" id="sm-error"></div>
 
       <div class="sm-actions">
-        <button class="btn-secondary" onclick="closeScoreModal()">Cancelar</button>
-        <button class="btn-primary" onclick="saveScore()">Salvar resultado</button>
-      </div>
-    </div>
-  </div>
-</body>
-</html>
+        <button class="btn-secondary" onclick="closeScoreModal()"
