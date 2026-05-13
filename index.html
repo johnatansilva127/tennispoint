@@ -1499,6 +1499,21 @@
       font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
       color: var(--text-dim); text-transform: uppercase;
     }
+    .up-time.is-future {
+      flex: 0 0 70px;
+      font-family: var(--font-display);
+      color: var(--text); text-align: center;
+      display: flex; flex-direction: column; justify-content: center;
+      gap: 2px;
+    }
+    .up-time.is-future .up-date {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+      color: var(--text-dim);
+    }
+    .up-time.is-future .up-hour {
+      font-size: 16px; font-weight: 800; color: var(--accent);
+    }
+    .up-card.is-future { opacity: 0.92; }
     .up-body { flex: 1; min-width: 0; }
     .up-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
     .up-chip {
@@ -2127,6 +2142,7 @@
     }
 
     let _upcomingToday = [];
+    let _upcomingFuture = [];
     let _upcomingTBD = [];
     let _bracketIdToCatKey = {}; // bracketId -> mockKey (preenchido por loadMatchesFromDB)
 
@@ -2137,6 +2153,31 @@
       const t = new Date();
       const todayStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
       return parsed.date === todayStr;
+    }
+    function _isFutureDate(scheduledWhenStr) {
+      if (!scheduledWhenStr) return false;
+      const parsed = parseScheduledWhen(scheduledWhenStr);
+      if (!parsed.date) return false;
+      const t = new Date();
+      const todayStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+      return parsed.date > todayStr;
+    }
+    // Ordena por data + hora ascendente
+    function _byScheduledFull(a, b) {
+      const pa = parseScheduledWhen(a.scheduled_when);
+      const pb = parseScheduledWhen(b.scheduled_when);
+      const ka = (pa.date || '9999-99-99') + ' ' + (pa.time || '99:99');
+      const kb = (pb.date || '9999-99-99') + ' ' + (pb.time || '99:99');
+      return ka.localeCompare(kb);
+    }
+    // Formata data tipo "Qui, 14/05"
+    const _DAYS_PT_SHORT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+    function _fmtDateShort(scheduledWhenStr) {
+      const parsed = parseScheduledWhen(scheduledWhenStr);
+      if (!parsed.date) return '';
+      const d = new Date(parsed.date + 'T00:00:00');
+      if (isNaN(d.getTime())) return '';
+      return _DAYS_PT_SHORT[d.getDay()] + ', ' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
     }
 
     // Ordena por hora ascendente (matches sem hora vao pro final)
@@ -2168,6 +2209,9 @@
         _upcomingToday = rows
           .filter(m => m.status !== 'in_progress' && isPlayable(m) && _isToday(m.scheduled_when))
           .sort(_byScheduledTime);
+        _upcomingFuture = rows
+          .filter(m => m.status !== 'in_progress' && isPlayable(m) && _isFutureDate(m.scheduled_when))
+          .sort(_byScheduledFull);
         _upcomingTBD = rows
           .filter(m => m.status !== 'in_progress' && isPlayable(m) && !m.scheduled_when)
           .slice(0, 30);
@@ -2208,16 +2252,21 @@
       const round = (m.round_code || '').toUpperCase();
       const parsed = parseScheduledWhen(m.scheduled_when);
       const isTbd = opts.noTime || !parsed.time;
-      const timeLabel = isTbd ? 'A<br>definir' : parsed.time.replace(':', 'h');
+      const dateLabel = opts.showDate ? _fmtDateShort(m.scheduled_when) : '';
+      const timeLabel = isTbd
+        ? 'A<br>definir'
+        : (opts.showDate
+            ? `<div class="up-date">${dateLabel}</div><div class="up-hour">${parsed.time.replace(':', 'h')}</div>`
+            : parsed.time.replace(':', 'h'));
       const adminActions = (currentRole === 'admin') ? `
         <div class="up-actions">
-          <button class="up-start-btn" onclick="startScheduledMatch('${m.id}')">▶ INICIAR AO VIVO</button>
+          ${!opts.showDate ? `<button class="up-start-btn" onclick="startScheduledMatch('${m.id}')">▶ INICIAR AO VIVO</button>` : ''}
           <button class="up-edit-btn" onclick="openScheduleMatchModal('${m.id}')">✏️ Editar</button>
         </div>` : '';
       return `
-        <article class="up-card">
+        <article class="up-card${opts.showDate ? ' is-future' : ''}">
           <div class="up-card-row">
-            <div class="up-time${isTbd ? ' is-tbd' : ''}">${timeLabel}</div>
+            <div class="up-time${isTbd ? ' is-tbd' : ''}${opts.showDate ? ' is-future' : ''}">${timeLabel}</div>
             <div class="up-body">
               <div class="up-meta">
                 ${cat ? `<span class="up-chip">${cat}</span>` : ''}
@@ -2241,6 +2290,7 @@
 
       const liveCount = _liveMatches.length;
       const todayCount = _upcomingToday.length;
+      const futureCount = _upcomingFuture.length;
       const tbdCount = _upcomingTBD.length;
 
       // Subtitulo do hero
@@ -2249,6 +2299,8 @@
           sub.textContent = `${liveCount} ${liveCount === 1 ? 'jogo' : 'jogos'} acontecendo agora`;
         } else if (todayCount) {
           sub.textContent = `${todayCount} ${todayCount === 1 ? 'jogo' : 'jogos'} agendado${todayCount === 1 ? '' : 's'} pra hoje`;
+        } else if (futureCount) {
+          sub.textContent = `${futureCount} ${futureCount === 1 ? 'jogo agendado' : 'jogos agendados'} nos próximos dias`;
         } else {
           sub.textContent = 'Nenhum jogo em andamento agora';
         }
@@ -2276,6 +2328,18 @@
               <span class="up-section-count">${todayCount}</span>
             </div>
             <div class="up-list">${_upcomingToday.map(m => renderUpcomingCard(m)).join('')}</div>
+          </div>`;
+      }
+
+      // Bloco PRÓXIMOS DIAS
+      if (futureCount) {
+        html += `
+          <div class="up-section">
+            <div class="up-section-head">
+              <span class="up-section-title">PRÓXIMOS <em>DIAS</em></span>
+              <span class="up-section-count">${futureCount}</span>
+            </div>
+            <div class="up-list">${_upcomingFuture.map(m => renderUpcomingCard(m, { showDate: true })).join('')}</div>
           </div>`;
       }
 
@@ -2570,6 +2634,10 @@
       document.getElementById('sch-avulso-p2').value = '';
       document.getElementById('sch-avulso-time').value = '';
       document.getElementById('sch-day-msg').textContent = '';
+      // Default data = hoje
+      const _t = new Date();
+      const _tStr = _t.getFullYear()+'-'+String(_t.getMonth()+1).padStart(2,'0')+'-'+String(_t.getDate()).padStart(2,'0');
+      document.getElementById('sch-day-date').value = _tStr;
       document.getElementById('sch-day-bd').classList.add('is-open');
       document.getElementById('sch-day-modal').classList.add('is-open');
       schDayStep('bracket');
@@ -2588,6 +2656,15 @@
       document.getElementById('sch-step-avulso').style.display = step === 'avulso' ? '' : 'none';
       if (step === 'bracket') renderScheduleDayList();
     }
+    function setSchDayToday() {
+      const t = new Date();
+      document.getElementById('sch-day-date').value = t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+    }
+    function setSchDayPlus(days) {
+      const t = new Date(); t.setDate(t.getDate() + days);
+      document.getElementById('sch-day-date').value = t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+    }
+
     function _todayDateStr() {
       const t = new Date();
       return t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
@@ -2626,40 +2703,45 @@
             ${m.scheduled_when ? `<div class="sch-row-sub">Atual: ${m.scheduled_when}</div>` : ''}
           </div>
           <input type="time" class="sch-time-input" value="${curTime}" id="sch-time-${m.id}">
-          <button class="sch-add-btn" onclick="scheduleBracketMatchToday('${m.id}')">Agendar</button>
+          <button class="sch-add-btn" onclick="scheduleBracketMatch('${m.id}')">Agendar</button>
         </div>`;
       }).join('');
     }
-    async function scheduleBracketMatchToday(matchId) {
+    async function scheduleBracketMatch(matchId) {
       const timeEl = document.getElementById('sch-time-' + matchId);
       const time = (timeEl.value || '').trim();
-      if (!time) { document.getElementById('sch-day-msg').style.color = 'var(--loss)'; document.getElementById('sch-day-msg').textContent = 'Informe um horário'; return; }
-      const when = fmtScheduledWhen(_todayDateStr(), time);
+      const date = document.getElementById('sch-day-date').value;
+      const msg = document.getElementById('sch-day-msg');
+      msg.style.color = 'var(--loss)';
+      if (!date) { msg.textContent = 'Selecione a data'; return; }
+      if (!time) { msg.textContent = 'Informe um horário'; return; }
+      const when = fmtScheduledWhen(date, time);
       try {
         const { error } = await sb.from('matches').update({ scheduled_when: when }).eq('id', matchId);
         if (error) throw error;
-        // Feedback inline + remove row da lista
         const row = document.querySelector(`.sch-row[data-match-id="${matchId}"]`);
         if (row) { row.style.opacity = '0.5'; row.querySelector('.sch-add-btn').textContent = '✓ Agendado'; row.querySelector('.sch-add-btn').disabled = true; }
-        document.getElementById('sch-day-msg').style.color = 'var(--accent)';
-        document.getElementById('sch-day-msg').textContent = 'Agendado pra ' + time + '!';
+        msg.style.color = 'var(--accent)';
+        msg.textContent = 'Agendado pra ' + when + '!';
         loadLiveMatches();
       } catch (e) {
-        document.getElementById('sch-day-msg').style.color = 'var(--loss)';
-        document.getElementById('sch-day-msg').textContent = 'Erro: ' + (e.message || '');
+        msg.textContent = 'Erro: ' + (e.message || '');
       }
     }
-    async function scheduleAvulsoMatchToday() {
+    async function scheduleAvulsoMatch() {
       const p1 = document.getElementById('sch-avulso-p1').value.trim();
       const p2 = document.getElementById('sch-avulso-p2').value.trim();
       const time = document.getElementById('sch-avulso-time').value.trim();
+      const date = document.getElementById('sch-day-date').value;
       const catId = document.getElementById('sch-avulso-cat').value;
       const msgEl = document.getElementById('sch-day-msg');
       msgEl.style.color = 'var(--loss)';
+      if (!date) { msgEl.textContent = 'Selecione a data'; return; }
       if (!p1 || !p2) { msgEl.textContent = 'Informe os 2 jogadores'; return; }
       if (!time) { msgEl.textContent = 'Informe o horário'; return; }
       const { data: brackets } = await sb.from('brackets').select('id').eq('category_id', catId).limit(1);
       if (!brackets || !brackets.length) { msgEl.textContent = 'Categoria sem bracket'; return; }
+      const when = fmtScheduledWhen(date, time);
       try {
         const { error } = await sb.from('matches').insert({
           bracket_id: brackets[0].id,
@@ -2668,12 +2750,12 @@
           player1_name: p1,
           player2_name: p2,
           status: 'scheduled',
-          scheduled_when: fmtScheduledWhen(_todayDateStr(), time),
+          scheduled_when: when,
           score: JSON.stringify({ p1: [null,null,null], p2: [null,null,null] }),
         });
         if (error) throw error;
         msgEl.style.color = 'var(--accent)';
-        msgEl.textContent = 'Jogo avulso agendado pra ' + time + '!';
+        msgEl.textContent = 'Jogo avulso agendado pra ' + when + '!';
         document.getElementById('sch-avulso-p1').value = '';
         document.getElementById('sch-avulso-p2').value = '';
         document.getElementById('sch-avulso-time').value = '';
@@ -4726,8 +4808,17 @@
   <div class="score-modal-backdrop" id="sch-day-bd" onclick="closeScheduleDayModal()"></div>
   <div class="score-modal" id="sch-day-modal" role="dialog" aria-modal="true">
     <div class="score-modal-card" style="max-width:560px">
-      <h3>Programar jogos do dia</h3>
-      <div class="sm-sub">Adicione os jogos com horário. Os membros vão ver na seção PRÓXIMOS HOJE.</div>
+      <h3>Programar jogos</h3>
+      <div class="sm-sub">Escolha a data e adicione os jogos com horário. Os membros vão ver na tela JOGOS AO VIVO.</div>
+      <div style="margin-top:14px">
+        <label class="sr-label" style="display:block;margin-bottom:6px">Data dos jogos</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="date" id="sch-day-date" style="flex:1;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px">
+          <button type="button" class="sched-chip" onclick="setSchDayToday()">Hoje</button>
+          <button type="button" class="sched-chip" onclick="setSchDayPlus(1)">Amanhã</button>
+          <button type="button" class="sched-chip" onclick="setSchDayPlus(7)">+7d</button>
+        </div>
+      </div>
       <div style="display:flex;gap:8px;margin:14px 0">
         <button id="btn-sch-bracket" class="btn-primary" style="flex:1" onclick="schDayStep('bracket')">Da chave</button>
         <button id="btn-sch-avulso" class="btn-secondary" style="flex:1" onclick="schDayStep('avulso')">Avulso</button>
@@ -4760,7 +4851,7 @@
           <div style="flex:1"><label class="sr-label" style="display:block;margin-bottom:6px">Categoria</label><select id="sch-avulso-cat" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></select></div>
           <div style="flex:0 0 130px"><label class="sr-label" style="display:block;margin-bottom:6px">Horário</label><input type="time" id="sch-avulso-time" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></div>
         </div>
-        <button class="btn-primary" style="width:100%;margin-top:14px" onclick="scheduleAvulsoMatchToday()">Agendar jogo avulso</button>
+        <button class="btn-primary" style="width:100%;margin-top:14px" onclick="scheduleAvulsoMatch()">Agendar jogo avulso</button>
       </div>
 
       <div id="sch-day-msg" class="sm-error" style="margin-top:10px"></div>
