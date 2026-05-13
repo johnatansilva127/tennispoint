@@ -3304,6 +3304,17 @@
 
         // Reconstroi p1/p2 com a mesma forma do mock
         function buildPlayer(name, sets, status, seed, fromMatch, fromRound) {
+          // Se o jogo ja tem status salvo (placar lancado), usar os valores reais mesmo se
+          // o slot originalmente era draft (fromMatch). Isso permite render normal apos lancar.
+          if (status) {
+            return {
+              name,
+              fromMatch: (fromMatch !== undefined && fromMatch !== null) ? fromMatch : null,
+              fromRound: fromRound || null,
+              status, sets: sets || [null,null,null],
+              seed: seed ?? null,
+            };
+          }
           if (fromMatch !== undefined && fromMatch !== null) {
             return { name, fromMatch, fromRound: fromRound || null, status: null, sets: [null,null,null] };
           }
@@ -4954,6 +4965,8 @@
       const p2Win = m.p2.status === 'win';
 
       function isPlayerDraft(p) {
+        // Se o jogo ja foi lancado (status setado), nao trata mais como draft
+        if (p && p.status) return false;
         return p && p.fromMatch !== undefined && p.fromMatch !== null;
       }
 
