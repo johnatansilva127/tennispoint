@@ -1464,6 +1464,50 @@
       background: var(--accent); color: var(--bg-0); border-color: var(--accent);
     }
     .live-actions button.danger { color: #ff5c5c; border-color: rgba(255,92,92,.3); }
+
+    /* Próximos jogos */
+    .up-section { margin-top: 22px; }
+    .up-section-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      padding: 0 4px 8px 4px;
+    }
+    .up-section-title {
+      font-family: var(--font-display); font-weight: 800; font-size: 13px;
+      letter-spacing: 0.08em; color: var(--text-dim);
+    }
+    .up-section-title em {
+      font-style: normal; color: var(--accent);
+    }
+    .up-section-count {
+      font-size: 11px; color: var(--text-dim);
+      background: var(--card-2, rgba(255,255,255,0.05));
+      padding: 2px 8px; border-radius: 999px;
+    }
+    .up-list { display: flex; flex-direction: column; gap: 8px; }
+    .up-card {
+      display: flex; gap: 12px; align-items: center;
+      background: var(--card, #161616);
+      border: 1px solid var(--border, rgba(255,255,255,0.08));
+      border-radius: 14px; padding: 12px 14px;
+    }
+    .up-time {
+      flex: 0 0 56px;
+      font-family: var(--font-display); font-weight: 800; font-size: 18px;
+      color: var(--accent); text-align: center; line-height: 1.1;
+    }
+    .up-body { flex: 1; min-width: 0; }
+    .up-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .up-chip {
+      display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+      padding: 2px 8px; border-radius: 999px;
+      background: rgba(193,242,18,0.14); color: var(--accent);
+    }
+    .up-round { font-size: 11px; color: var(--text-dim); font-weight: 600; }
+    .up-players {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--text);
+    }
+    .up-vs { color: var(--text-dim); font-weight: 400; font-size: 11px; }
     .start-live-btn {
       width: 100%; padding: 14px; border-radius: 14px;
       background: var(--accent); color: var(--bg-0);
@@ -2008,16 +2052,43 @@
       subscribeLiveMatches();
     }
 
+    let _upcomingToday = [];
+    let _upcomingTBD = [];
+    let _bracketIdToCatKey = {}; // bracketId -> mockKey (preenchido por loadMatchesFromDB)
+
+    function _isToday(scheduledWhenStr) {
+      if (!scheduledWhenStr) return false;
+      const parsed = parseScheduledWhen(scheduledWhenStr);
+      if (!parsed.date) return false;
+      const t = new Date();
+      const todayStr = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+      return parsed.date === todayStr;
+    }
+
+    // Ordena por hora ascendente (matches sem hora vao pro final)
+    function _byScheduledTime(a, b) {
+      const ta = parseScheduledWhen(a.scheduled_when).time || '99:99';
+      const tb = parseScheduledWhen(b.scheduled_when).time || '99:99';
+      return ta.localeCompare(tb);
+    }
+
     async function loadLiveMatches() {
       try {
+        // Pega tudo nao-completado em uma chamada — bucketing em JS
         const { data, error } = await sb
           .from('matches')
           .select('id, bracket_id, round_code, match_no, player1_name, player2_name, score, status, court_id, scheduled_when, is_final')
-          .eq('status', 'in_progress')
-          .order('created_at', { ascending: false });
+          .neq('status', 'completed')
+          .limit(500);
         if (error) { console.error('loadLiveMatches', error); return; }
-        // resolver categoria via brackets cache
-        _liveMatches = data || [];
+        const rows = data || [];
+        _liveMatches = rows.filter(m => m.status === 'in_progress');
+        _upcomingToday = rows
+          .filter(m => m.status !== 'in_progress' && _isToday(m.scheduled_when))
+          .sort(_byScheduledTime);
+        _upcomingTBD = rows
+          .filter(m => m.status !== 'in_progress' && !m.scheduled_when)
+          .slice(0, 30);
         renderLiveMatches();
       } catch (e) { console.error(e); }
     }
@@ -2040,22 +2111,98 @@
       return m.round_code ? m.round_code.toUpperCase() : '';
     }
 
+    // Resolve nome da categoria a partir do bracket_id usando o cache
+    function _matchCatShort(m) {
+      if (!m || !m.bracket_id) return '';
+      const mockKey = _bracketIdToCatKey[m.bracket_id];
+      if (!mockKey) return '';
+      const cat = categoriesData[mockKey];
+      return (cat && cat.short) || mockKey;
+    }
+
+    function renderUpcomingCard(m, opts) {
+      opts = opts || {};
+      const cat = _matchCatShort(m);
+      const round = (m.round_code || '').toUpperCase();
+      const parsed = parseScheduledWhen(m.scheduled_when);
+      const timeLabel = opts.noTime
+        ? 'A definir'
+        : (parsed.time ? parsed.time.replace(':', 'h') : 'A definir');
+      return `
+        <article class="up-card">
+          <div class="up-time">${timeLabel}</div>
+          <div class="up-body">
+            <div class="up-meta">
+              ${cat ? `<span class="up-chip">${cat}</span>` : ''}
+              <span class="up-round">${round || ''}${m.match_no ? (round ? ' · ' : '') + '#' + m.match_no : ''}</span>
+            </div>
+            <div class="up-players">
+              <span class="up-p">${m.player1_name || 'Jogador 1'}</span>
+              <span class="up-vs">vs</span>
+              <span class="up-p">${m.player2_name || 'Jogador 2'}</span>
+            </div>
+          </div>
+        </article>`;
+    }
+
     function renderLiveMatches() {
       const wrap = document.getElementById('live-matches-list');
       const sub = document.getElementById('live-sub');
       if (!wrap) return;
-      if (!_liveMatches.length) {
-        if (sub) sub.textContent = 'Nenhum jogo em andamento agora';
-        wrap.innerHTML = `
+
+      const liveCount = _liveMatches.length;
+      const todayCount = _upcomingToday.length;
+      const tbdCount = _upcomingTBD.length;
+
+      // Subtitulo do hero
+      if (sub) {
+        if (liveCount) {
+          sub.textContent = `${liveCount} ${liveCount === 1 ? 'jogo' : 'jogos'} acontecendo agora`;
+        } else if (todayCount) {
+          sub.textContent = `${todayCount} ${todayCount === 1 ? 'jogo' : 'jogos'} agendado${todayCount === 1 ? '' : 's'} pra hoje`;
+        } else {
+          sub.textContent = 'Nenhum jogo em andamento agora';
+        }
+      }
+
+      let html = '';
+      // Bloco AO VIVO
+      if (liveCount) {
+        html += _liveMatches.map(renderLiveCard).join('');
+      } else {
+        html += `
           <div class="live-empty">
             <div class="icon">🎾</div>
             <div style="font-weight:600;color:var(--text);margin-bottom:4px">Nenhum jogo em andamento</div>
             <div>Quando o admin iniciar uma partida, ela aparece aqui em tempo real.</div>
           </div>`;
-        return;
       }
-      if (sub) sub.textContent = `${_liveMatches.length} ${_liveMatches.length === 1 ? 'jogo' : 'jogos'} acontecendo agora`;
-      wrap.innerHTML = _liveMatches.map(renderLiveCard).join('');
+
+      // Bloco PRÓXIMOS HOJE
+      if (todayCount) {
+        html += `
+          <div class="up-section">
+            <div class="up-section-head">
+              <span class="up-section-title">PRÓXIMOS <em>HOJE</em></span>
+              <span class="up-section-count">${todayCount}</span>
+            </div>
+            <div class="up-list">${_upcomingToday.map(m => renderUpcomingCard(m)).join('')}</div>
+          </div>`;
+      }
+
+      // Bloco A DEFINIR
+      if (tbdCount) {
+        html += `
+          <div class="up-section">
+            <div class="up-section-head">
+              <span class="up-section-title">A <em>DEFINIR</em></span>
+              <span class="up-section-count">${tbdCount}</span>
+            </div>
+            <div class="up-list">${_upcomingTBD.map(m => renderUpcomingCard(m, { noTime: true })).join('')}</div>
+          </div>`;
+      }
+
+      wrap.innerHTML = html;
     }
 
     function _parseScore(scoreStr) {
@@ -2588,6 +2735,13 @@
       // Reset categoriesData.matches dos 4 categories (vamos repopular do banco)
       Object.keys(categoriesData).forEach(k => {
         categoriesData[k].matches = { r64: [], r32: [], r16: [], qf: [], sf: [], f: [] };
+      });
+
+      // Cache global pra _matchCatShort funcionar com bracketId direto
+      _bracketIdToCatKey = {};
+      Object.entries(bracketCat).forEach(([bid, catDbId]) => {
+        const mk = CAT_DB_TO_MOCK[catDbId];
+        if (mk) _bracketIdToCatKey[bid] = mk;
       });
 
       (rows || []).forEach(r => {
