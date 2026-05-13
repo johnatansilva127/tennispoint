@@ -1512,6 +1512,18 @@
       font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--text);
     }
     .up-vs { color: var(--text-dim); font-weight: 400; font-size: 11px; }
+    .up-card.is-clickable { cursor: pointer; transition: transform 0.1s, border-color 0.15s; }
+    .up-card.is-clickable:hover { border-color: rgba(193,242,18,0.35); transform: translateY(-1px); }
+    .up-edit { margin-left: auto; font-size: 11px; opacity: 0.7; }
+    .sr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .sched-shortcuts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .sched-chip {
+      background: var(--card-2, rgba(255,255,255,0.05));
+      color: var(--text); border: 1px solid var(--border, rgba(255,255,255,0.08));
+      padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+      cursor: pointer;
+    }
+    .sched-chip:hover { border-color: var(--accent); color: var(--accent); }
     .start-live-btn {
       width: 100%; padding: 14px; border-radius: 14px;
       background: var(--accent); color: var(--bg-0);
@@ -2139,13 +2151,16 @@
       const parsed = parseScheduledWhen(m.scheduled_when);
       const isTbd = opts.noTime || !parsed.time;
       const timeLabel = isTbd ? 'A<br>definir' : parsed.time.replace(':', 'h');
+      const adminClick = (currentRole === 'admin') ? `onclick="openScheduleMatchModal('${m.id}')"` : '';
+      const editIcon = (currentRole === 'admin') ? `<span class="up-edit" aria-hidden="true">✏️</span>` : '';
       return `
-        <article class="up-card">
+        <article class="up-card${currentRole === 'admin' ? ' is-clickable' : ''}" ${adminClick}>
           <div class="up-time${isTbd ? ' is-tbd' : ''}">${timeLabel}</div>
           <div class="up-body">
             <div class="up-meta">
               ${cat ? `<span class="up-chip">${cat}</span>` : ''}
               <span class="up-round">${round || ''}${m.match_no ? (round ? ' · ' : '') + '#' + m.match_no : ''}</span>
+              ${editIcon}
             </div>
             <div class="up-players">
               <span class="up-p">${m.player1_name || 'Jogador 1'}</span>
@@ -2457,6 +2472,76 @@
         // recarrega lista
         loadLiveMatches();
       } catch (e) { msgEl.textContent = 'Erro: ' + (e.message || ''); }
+    }
+
+    // ===========================
+    // Modal: Agendar jogo (admin)
+    // ===========================
+    let _scheduleEditing = null; // { id, m }
+
+    function openScheduleMatchModal(matchId) {
+      if (currentRole !== 'admin') return;
+      // Procura nos buckets atuais
+      const m = [..._upcomingToday, ..._upcomingTBD, ..._liveMatches].find(x => x.id === matchId);
+      if (!m) return;
+      _scheduleEditing = { id: matchId, m };
+      document.getElementById('sched-sub').textContent =
+        `${(m.round_code || '').toUpperCase()}${m.match_no ? ' · #'+m.match_no : ''} — ${m.player1_name || 'Jogador 1'} vs ${m.player2_name || 'Jogador 2'}`;
+      // Preenche inputs com valores atuais (ou hoje)
+      const parsed = parseScheduledWhen(m.scheduled_when);
+      const today = new Date();
+      const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+      document.getElementById('sched-date').value = parsed.date || todayStr;
+      document.getElementById('sched-time').value = parsed.time || '';
+      document.getElementById('sched-msg').textContent = '';
+      document.getElementById('sched-modal-bd').classList.add('is-open');
+      document.getElementById('sched-modal').classList.add('is-open');
+    }
+    function closeScheduleMatchModal() {
+      document.getElementById('sched-modal-bd').classList.remove('is-open');
+      document.getElementById('sched-modal').classList.remove('is-open');
+      _scheduleEditing = null;
+    }
+    function setSchedTimeShortcut(hhmm) {
+      document.getElementById('sched-time').value = hhmm;
+    }
+    function setSchedDateToday() {
+      const t = new Date();
+      document.getElementById('sched-date').value =
+        t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+    }
+    async function saveScheduleMatch() {
+      if (!_scheduleEditing) return;
+      const msgEl = document.getElementById('sched-msg');
+      msgEl.style.color = 'var(--loss)';
+      const dateStr = document.getElementById('sched-date').value.trim();
+      const timeStr = document.getElementById('sched-time').value.trim();
+      if (!dateStr && !timeStr) { msgEl.textContent = 'Informe data, hora ou ambos'; return; }
+      const when = fmtScheduledWhen(dateStr, timeStr);
+      try {
+        const { error } = await sb.from('matches')
+          .update({ scheduled_when: when })
+          .eq('id', _scheduleEditing.id);
+        if (error) throw error;
+        msgEl.style.color = 'var(--accent)';
+        msgEl.textContent = 'Agendado!';
+        setTimeout(() => { closeScheduleMatchModal(); loadLiveMatches(); }, 500);
+      } catch (e) {
+        msgEl.textContent = 'Erro: ' + (e.message || '');
+      }
+    }
+    async function clearScheduleMatch() {
+      if (!_scheduleEditing) return;
+      try {
+        const { error } = await sb.from('matches')
+          .update({ scheduled_when: null })
+          .eq('id', _scheduleEditing.id);
+        if (error) throw error;
+        closeScheduleMatchModal();
+        loadLiveMatches();
+      } catch (e) {
+        document.getElementById('sched-msg').textContent = 'Erro: ' + (e.message || '');
+      }
     }
 
     // ===========================
@@ -4424,6 +4509,40 @@
       <div class="sm-actions">
         <button class="btn-secondary" onclick="closeLiveScoreModal()">Cancelar</button>
         <button class="btn-primary" onclick="saveLiveScore()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Modal: Agendar jogo (admin) ===== -->
+  <div class="score-modal-backdrop" id="sched-modal-bd" onclick="closeScheduleMatchModal()"></div>
+  <div class="score-modal" id="sched-modal" role="dialog" aria-modal="true">
+    <div class="score-modal-card">
+      <h3>Agendar jogo</h3>
+      <div class="sm-sub" id="sched-sub"></div>
+      <div class="sr-grid" style="margin-top:14px">
+        <div>
+          <div class="sr-label">Data</div>
+          <input type="date" id="sched-date" style="width:100%">
+        </div>
+        <div>
+          <div class="sr-label">Hora</div>
+          <input type="time" id="sched-time" style="width:100%">
+        </div>
+      </div>
+      <div class="sched-shortcuts">
+        <button type="button" class="sched-chip" onclick="setSchedDateToday()">Hoje</button>
+        <button type="button" class="sched-chip" onclick="setSchedTimeShortcut('08:00')">08:00</button>
+        <button type="button" class="sched-chip" onclick="setSchedTimeShortcut('09:30')">09:30</button>
+        <button type="button" class="sched-chip" onclick="setSchedTimeShortcut('11:00')">11:00</button>
+        <button type="button" class="sched-chip" onclick="setSchedTimeShortcut('14:00')">14:00</button>
+        <button type="button" class="sched-chip" onclick="setSchedTimeShortcut('16:00')">16:00</button>
+        <button type="button" class="sched-chip" onclick="setSchedTimeShortcut('18:00')">18:00</button>
+      </div>
+      <div class="sm-msg" id="sched-msg" style="margin-top:8px"></div>
+      <div class="winner-row" style="margin-top:14px">
+        <button type="button" class="btn-secondary" onclick="closeScheduleMatchModal()">Cancelar</button>
+        <button type="button" class="btn-secondary danger" onclick="clearScheduleMatch()">Limpar</button>
+        <button type="button" class="btn-primary" onclick="saveScheduleMatch()">Salvar</button>
       </div>
     </div>
   </div>
