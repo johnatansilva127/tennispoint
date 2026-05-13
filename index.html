@@ -2334,18 +2334,35 @@
       if (!_finalWinner) { document.getElementById('finalize-live-msg').textContent = 'Selecione quem venceu'; return; }
       const m = _liveEditing.m;
       const winnerName = (_finalWinner === 1 || _finalWinner === 'wo') ? m.player1_name : m.player2_name;
+      // Le score atual e injeta p1_status/p2_status — isso e o que o bracket renderer
+      // usa pra saber quem venceu e propagar pra rodada seguinte.
+      const curScore = _parseScore(m.score);
+      const p1Sets = curScore.p1 || [null, null, null];
+      const p2Sets = curScore.p2 || [null, null, null];
+      let p1Status, p2Status;
+      if (_finalWinner === 'wo') {
+        p1Status = 'win'; p2Status = 'wo';
+      } else if (_finalWinner === 1) {
+        p1Status = 'win'; p2Status = 'loss';
+      } else {
+        p1Status = 'loss'; p2Status = 'win';
+      }
+      const newScore = JSON.stringify({ p1: p1Sets, p2: p2Sets, p1_status: p1Status, p2_status: p2Status });
       try {
-        await sb.from('matches').update({
+        const { error } = await sb.from('matches').update({
           status: 'completed',
           winner_name: winnerName,
+          score: newScore,
           reported_at: new Date().toISOString(),
         }).eq('id', _liveEditing.id);
-        // Propaga vencedor pras rodadas posteriores (reutiliza funcao existente)
-        // Precisa do catKey — sem isso, pulo a propagacao automatica aqui.
+        if (error) throw error;
         closeFinalizeLiveModal();
         loadLiveMatches();
-        // recarrega categoriesData pra os brackets refletirem
+        // recarrega categoriesData pra os brackets refletirem e propagar o vencedor
         await loadMatchesFromDB();
+        if (currentCategory && categoriesData[currentCategory]) {
+          matches = categoriesData[currentCategory].matches;
+        }
       } catch (e) {
         document.getElementById('finalize-live-msg').textContent = 'Erro: ' + (e.message || '');
       }
