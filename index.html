@@ -2499,17 +2499,11 @@
           </div>`;
       }
 
-      // Bloco A DEFINIR
-      if (tbdCount) {
-        html += `
-          <div class="up-section">
-            <div class="up-section-head">
-              <span class="up-section-title">A <em>DEFINIR</em></span>
-              <span class="up-section-count">${tbdCount}</span>
-            </div>
-            <div class="up-list">${_upcomingTBD.map(m => renderUpcomingCard(m, { noTime: true })).join('')}</div>
-          </div>`;
-      }
+      // Bloco A DEFINIR removido a pedido do admin — mostra so o que esta na agenda
+      // (AO VIVO + PROXIMOS HOJE + PROXIMOS DIAS). Pra reativar, descomentar abaixo.
+      // if (tbdCount) {
+      //   html += `<div class="up-section">...A DEFINIR...</div>`;
+      // }
 
       wrap.innerHTML = html;
     }
@@ -5394,3 +5388,4 @@
   </div>
 </body>
 </html>
+                                                                                                                                                                
