@@ -4695,7 +4695,23 @@
       if (dEl) dEl.value = parsed.date || '';
       if (tEl) tEl.value = parsed.time || '';
 
-      _scoreWinner = m.p1 && m.p1.status === 'win' ? 1 : (m.p2 && m.p2.status === 'win' ? 2 : null);
+      // Detecta estado salvo: 'wo' significa que esse jogador DEU W.O. (perdeu)
+      if (m.p1 && m.p1.status === 'wo') {
+        _scoreWinner = 'wo1';
+      } else if (m.p2 && m.p2.status === 'wo') {
+        _scoreWinner = 'wo2';
+      } else if (m.p1 && m.p1.status === 'win') {
+        _scoreWinner = 1;
+      } else if (m.p2 && m.p2.status === 'win') {
+        _scoreWinner = 2;
+      } else {
+        _scoreWinner = null;
+      }
+      // Popula nomes nos botoes de "Quem deu W.O."
+      const wo1Btn = document.getElementById('sm-wo1');
+      const wo2Btn = document.getElementById('sm-wo2');
+      if (wo1Btn) wo1Btn.textContent = _p1Resolved;
+      if (wo2Btn) wo2Btn.textContent = _p2Resolved;
       _refreshWinnerButtons();
       // Mostrar botao Limpar somente se ja tem placar salvo
       const clearBtn = document.getElementById('sm-clear-btn');
@@ -4711,13 +4727,31 @@
       _scoreEditing = null; _scoreWinner = null;
     }
 
-    function setWinner(w) { _scoreWinner = w; _refreshWinnerButtons(); }
+    function setWinner(w) {
+      // Reseta sub-selecao de W.O. quando troca pra vencedor normal
+      _scoreWinner = w;
+      _refreshWinnerButtons();
+    }
+    function setWoGiver(g) {
+      // g = 1 ou 2 (quem deu W.O., ou seja, quem perdeu)
+      _scoreWinner = g === 1 ? 'wo1' : 'wo2';
+      _refreshWinnerButtons();
+    }
 
     function _refreshWinnerButtons() {
-      ['sm-w1','sm-w2','sm-wo'].forEach(id => document.getElementById(id).classList.remove('is-on'));
-      if (_scoreWinner === 1)    document.getElementById('sm-w1').classList.add('is-on');
-      if (_scoreWinner === 2)    document.getElementById('sm-w2').classList.add('is-on');
-      if (_scoreWinner === 'wo') document.getElementById('sm-wo').classList.add('is-on');
+      ['sm-w1','sm-w2','sm-wo','sm-wo1','sm-wo2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('is-on');
+      });
+      const isWo = _scoreWinner === 'wo' || _scoreWinner === 'wo1' || _scoreWinner === 'wo2';
+      if (_scoreWinner === 1) document.getElementById('sm-w1').classList.add('is-on');
+      if (_scoreWinner === 2) document.getElementById('sm-w2').classList.add('is-on');
+      if (isWo) document.getElementById('sm-wo').classList.add('is-on');
+      if (_scoreWinner === 'wo1') document.getElementById('sm-wo1').classList.add('is-on');
+      if (_scoreWinner === 'wo2') document.getElementById('sm-wo2').classList.add('is-on');
+      // Mostra/esconde a sub-linha de "Quem deu W.O.?"
+      const woRow = document.getElementById('sm-wo-row');
+      if (woRow) woRow.style.display = isWo ? '' : 'none';
     }
 
     function _readNum(id) {
@@ -4785,7 +4819,8 @@
       const p2Sets = [_readNum('sm-p2-s1'), _readNum('sm-p2-s2'), _readNum('sm-p2-s3')];
 
       if (!_scoreWinner) { errEl.textContent = 'Selecione quem venceu'; return; }
-      const isWo = _scoreWinner === 'wo';
+      if (_scoreWinner === 'wo') { errEl.textContent = 'Selecione qual jogador deu W.O.'; return; }
+      const isWo = _scoreWinner === 'wo1' || _scoreWinner === 'wo2';
       if (!isWo) {
         if (p1Sets[0] === null || p2Sets[0] === null) { errEl.textContent = 'Informe ao menos o set 1'; return; }
       }
@@ -4794,8 +4829,11 @@
       // Atualiza em memoria
       m.p1.sets = p1Sets;
       m.p2.sets = p2Sets;
-      if (isWo) {
-        // por padrao, em W.O. o jogador 1 vence (admin pode trocar via botao)
+      if (_scoreWinner === 'wo1') {
+        // Jogador 1 deu W.O. -> jogador 2 venceu
+        m.p1.status = 'wo'; m.p2.status = 'win';
+      } else if (_scoreWinner === 'wo2') {
+        // Jogador 2 deu W.O. -> jogador 1 venceu
         m.p1.status = 'win'; m.p2.status = 'wo';
       } else if (_scoreWinner === 1) {
         m.p1.status = 'win'; m.p2.status = 'loss';
@@ -4807,9 +4845,9 @@
       // Usa o nome resolvido (real do vencedor da rodada anterior) se for um slot draft
       const _name1 = (m.p1 && m.p1._resolvedName) || (m.p1 && m.p1.name) || '';
       const _name2 = (m.p2 && m.p2._resolvedName) || (m.p2 && m.p2.name) || '';
-      const newWinnerName = isWo
+      const newWinnerName = (_scoreWinner === 1 || _scoreWinner === 'wo2')
         ? _name1
-        : (_scoreWinner === 1 ? _name1 : _name2);
+        : _name2;
       const oldWinnerName = (_scoreEditing.previousWinner || null);
       const p1Status = m.p1.status;
       const p2Status = m.p2.status;
@@ -5278,6 +5316,14 @@
         <button type="button" id="sm-w1" onclick="setWinner(1)">Jogador 1</button>
         <button type="button" id="sm-w2" onclick="setWinner(2)">Jogador 2</button>
         <button type="button" id="sm-wo" onclick="setWinner('wo')">W.O.</button>
+      </div>
+
+      <div id="sm-wo-row" style="display:none;margin-top:10px">
+        <div class="sr-label">Quem deu o W.O.? <span style="font-weight:400;color:var(--text-dim)">(jogador que não compareceu)</span></div>
+        <div class="winner-row">
+          <button type="button" id="sm-wo1" onclick="setWoGiver(1)">Jogador 1</button>
+          <button type="button" id="sm-wo2" onclick="setWoGiver(2)">Jogador 2</button>
+        </div>
       </div>
 
       <div class="sm-error" id="sm-error"></div>
