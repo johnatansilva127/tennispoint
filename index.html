@@ -2177,7 +2177,22 @@
       console.error('Supabase JS nao carregou. Verifique sua conexao com a internet (CDN jsdelivr).');
       window.__sbLoadFailed = true;
     }
-    const sb = (window.supabase && window.supabase.createClient)
+    // Valida nome de jogador (2-60 chars, letras unicode, numeros, espaco, hifen, apostrofo, ponto)
+    function _isValidName(v) {
+      if (!v || typeof v !== 'string') return false;
+      const t = v.trim();
+      if (t.length < 2 || t.length > 60) return false;
+      return /^[\p{L}\p{N}\s\-'.]+$/u.test(t);
+    }
+
+        // Helper de seguranca: escapa caracteres HTML pra evitar XSS via player names, bio, etc
+    const _ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    function _esc(v) {
+      if (v === null || v === undefined) return '';
+      return String(v).replace(/[&<>"']/g, ch => _ESC_MAP[ch]);
+    }
+
+        const sb = (window.supabase && window.supabase.createClient)
       ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
           auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
         })
@@ -2429,9 +2444,9 @@
                 <span class="up-round">${round || ''}${m.match_no ? (round ? ' · ' : '') + '#' + m.match_no : ''}</span>
               </div>
               <div class="up-players">
-                <span class="up-p">${m.player1_name || 'Jogador 1'}</span>
+                <span class="up-p">${_esc(m.player1_name || 'Jogador 1')}</span>
                 <span class="up-vs">vs</span>
-                <span class="up-p">${m.player2_name || 'Jogador 2'}</span>
+                <span class="up-p">${_esc(m.player2_name || 'Jogador 2')}</span>
               </div>
             </div>
           </div>
@@ -2531,11 +2546,11 @@
             <div>${m.is_final ? '🏆 FINAL' : ''}</div>
           </div>
           <div class="live-row">
-            <div class="live-player-name">${m.player1_name || 'Jogador 1'}</div>
+            <div class="live-player-name">${_esc(m.player1_name || 'Jogador 1')}</div>
             ${cellsP1}
           </div>
           <div class="live-row">
-            <div class="live-player-name">${m.player2_name || 'Jogador 2'}</div>
+            <div class="live-player-name">${_esc(m.player2_name || 'Jogador 2')}</div>
             ${cellsP2}
           </div>
           ${adminFooter}
@@ -2613,7 +2628,7 @@
       }
       list.innerHTML = available.map(m => `
         <div class="live-step" onclick="startMatchLive('${m.id}')">
-          <div class="step-title">#${m.match_no} · ${m.player1_name || 'TBD'} vs ${m.player2_name || 'TBD'}</div>
+          <div class="step-title">#${m.match_no} · ${_esc(m.player1_name || 'TBD')} vs ${_esc(m.player2_name || 'TBD')}</div>
           <div class="step-sub">Clique pra iniciar este jogo ao vivo</div>
         </div>
       `).join('');
@@ -2642,6 +2657,7 @@
       const p2 = document.getElementById('avulso-p2').value.trim();
       const catId = document.getElementById('avulso-cat').value;
       if (!p1 || !p2) { msgEl.textContent = 'Informe os 2 jogadores'; return; }
+      if (!_isValidName(p1) || !_isValidName(p2)) { msgEl.textContent = 'Nome inválido (2-60 chars, sem caracteres especiais)'; return; }
       // achar bracket da categoria pra anexar
       const { data: brackets } = await sb.from('brackets').select('id').eq('category_id', catId).limit(1);
       if (!brackets || !brackets.length) { msgEl.textContent = 'Categoria sem bracket. Avulso indisponivel.'; return; }
@@ -2853,7 +2869,7 @@
         return `
         <div class="sch-row" data-match-id="${m.id}">
           <div class="sch-row-body">
-            <div class="sch-row-title">#${m.match_no} · ${m.player1_name} vs ${m.player2_name}</div>
+            <div class="sch-row-title">#${m.match_no} · ${_esc(m.player1_name || '?')} vs ${_esc(m.player2_name || '?')}</div>
             ${m.scheduled_when ? `<div class="sch-row-sub">Atual: ${m.scheduled_when}</div>` : ''}
           </div>
           <input type="time" class="sch-time-input" value="${curTime}" id="sch-time-${m.id}">
@@ -2892,6 +2908,7 @@
       msgEl.style.color = 'var(--loss)';
       if (!date) { msgEl.textContent = 'Selecione a data'; return; }
       if (!p1 || !p2) { msgEl.textContent = 'Informe os 2 jogadores'; return; }
+      if (!_isValidName(p1) || !_isValidName(p2)) { msgEl.textContent = 'Nome inválido (2-60 chars, sem caracteres especiais)'; return; }
       if (!time) { msgEl.textContent = 'Informe o horário'; return; }
       const { data: brackets } = await sb.from('brackets').select('id').eq('category_id', catId).limit(1);
       if (!brackets || !brackets.length) { msgEl.textContent = 'Categoria sem bracket'; return; }
@@ -2931,7 +2948,7 @@
       if (!m) return;
       _scheduleEditing = { id: matchId, m };
       document.getElementById('sched-sub').textContent =
-        `${(m.round_code || '').toUpperCase()}${m.match_no ? ' · #'+m.match_no : ''} — ${m.player1_name || 'Jogador 1'} vs ${m.player2_name || 'Jogador 2'}`;
+        `${(m.round_code || '').toUpperCase()}${m.match_no ? ' · #'+m.match_no : ''} — ${_esc(m.player1_name || 'Jogador 1')} vs ${_esc(m.player2_name || 'Jogador 2')}`;
       // Preenche inputs com valores atuais (ou hoje)
       const parsed = parseScheduledWhen(m.scheduled_when);
       const today = new Date();
@@ -2998,7 +3015,7 @@
       if (!m) return;
       _liveEditing = { id: matchId, m };
       _finalWinner = null;
-      document.getElementById('finalize-live-sub').textContent = `${m.player1_name} vs ${m.player2_name}`;
+      document.getElementById('finalize-live-sub').textContent = `${_esc(m.player1_name || '?')} vs ${_esc(m.player2_name || '?')}`;
       document.getElementById('fin-w1').textContent = m.player1_name || 'Jogador 1';
       document.getElementById('fin-w2').textContent = m.player2_name || 'Jogador 2';
       ['fin-w1','fin-w2','fin-wo'].forEach(id => document.getElementById(id).classList.remove('is-on'));
@@ -3096,7 +3113,8 @@
       const btn = document.getElementById('btn-upd-send');
       const novo = (document.getElementById('upd-email').value || '').trim().toLowerCase();
       msgEl.style.color = 'var(--loss)';
-      if (!novo || novo.indexOf('@') < 0 || novo.indexOf('.') < 0) { msgEl.textContent = 'Informe um e-mail valido'; return; }
+      const _EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!novo || !_EMAIL_RE.test(novo)) { msgEl.textContent = 'Informe um e-mail valido'; return; }
       if (emailIsInstitutional(novo)) { msgEl.textContent = 'Use seu e-mail pessoal (Gmail, Outlook, etc), nao o institucional'; return; }
       btn.disabled = true; const old = btn.textContent; btn.textContent = 'Enviando...';
       try {
@@ -4426,7 +4444,18 @@
     async function doLogout() {
       closeDrawer();
       try { await sb.auth.signOut(); } catch (e) { console.warn(e); }
+      // Limpa estado global pra evitar leak de dados sensiveis em memoria
       currentUser = null;
+      currentRole = null;
+      try {
+        if (typeof dashboardData === 'object') Object.keys(dashboardData).forEach(k => delete dashboardData[k]);
+        if (typeof categoriesData === 'object') Object.keys(categoriesData).forEach(k => {
+          if (categoriesData[k] && categoriesData[k].matches) {
+            ['r64','r32','r16','qf','sf','f'].forEach(r => { categoriesData[k].matches[r] = []; });
+          }
+        });
+      } catch (e) {}
+      if (_liveSub) { try { sb.removeChannel(_liveSub); } catch (e) {} _liveSub = null; _liveSubActive = false; }
       document.getElementById('email').value = '';
       document.getElementById('senha').value = '';
       _showLoginError('');
