@@ -1605,6 +1605,12 @@
       border: 1px dashed rgba(193,242,18,0.4);
     }
     .schedule-btn:hover { background: rgba(193,242,18,0.14); }
+    .clean-btn {
+      background: rgba(255,92,92,0.06);
+      color: #ff5c5c;
+      border: 1px dashed rgba(255,92,92,0.35);
+    }
+    .clean-btn:hover { background: rgba(255,92,92,0.12); }
 
     /* Lista de jogos pra agendar em lote */
     .sch-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; margin-top: 10px; }
@@ -2079,7 +2085,7 @@
       <main class="home-content">
         <section class="hero">
           <div class="role-tag"><span class="live-badge" style="background:transparent;padding:0">AO VIVO</span></div>
-          <h1 class="hero-title">JOGOS <em>HOJE</em></h1>
+          <h1 class="hero-title">TENNIS <em>POINT</em></h1>
           <p class="hero-sub" id="live-sub">Acompanhe os jogos em andamento</p>
         </section>
 
@@ -2088,6 +2094,9 @@
         </button>
         <button class="start-live-btn schedule-btn" id="btn-schedule-day" style="display:none;margin-top:8px" onclick="openScheduleDayModal()">
           📅 Programar jogos do dia
+        </button>
+        <button class="start-live-btn clean-btn" id="btn-clean-agenda" style="display:none;margin-top:8px" onclick="confirmCleanAgenda()">
+          🧹 Limpar agenda
         </button>
 
         <div id="live-matches-list">
@@ -2242,6 +2251,39 @@
     let _finalWinner = null;
     let _startStep = null; // 'bracket' | 'avulso'
 
+    async function confirmCleanAgenda() {
+      if (currentRole !== 'admin') return;
+      const msg = 'Limpar TODA a agenda?\n\n' +
+        '• Jogos AO VIVO voltam pra "pendente" (perdem placar atual)\n' +
+        '• Próximos Hoje/Dias perdem horário marcado\n' +
+        '• Jogos avulsos (sem chave) são deletados\n\n' +
+        'Os jogos da chave não são apagados — só voltam pro estado original.\n\n' +
+        'Continuar?';
+      if (!confirm(msg)) return;
+      try {
+        // 1) Cancelar in_progress -> volta pra scheduled
+        const upLive = await sb.from('matches').update({
+          status: 'scheduled', score: null, scheduled_when: null,
+          winner_name: null, reported_at: null,
+        }).eq('status', 'in_progress');
+        if (upLive.error) throw upLive.error;
+        // 2) Limpar scheduled_when dos agendados (mantém da chave)
+        const upSched = await sb.from('matches').update({
+          scheduled_when: null
+        }).eq('status', 'scheduled').not('scheduled_when', 'is', null);
+        if (upSched.error) throw upSched.error;
+        // 3) Deletar avulsos (round_code='live')
+        const delAvulso = await sb.from('matches').delete().eq('round_code', 'live');
+        if (delAvulso.error) throw delAvulso.error;
+        alert('✓ Agenda limpa!');
+        loadLiveMatches();
+        await loadMatchesFromDB();
+      } catch (e) {
+        console.error(e);
+        alert('Erro ao limpar: ' + (e.message || 'tente de novo'));
+      }
+    }
+
     async function goToLive() {
       showScreen('screen-live');
       document.querySelectorAll('.nav-item').forEach(it => it.classList.remove('is-active'));
@@ -2249,6 +2291,8 @@
       if (startBtn) startBtn.style.display = currentRole === 'admin' ? '' : 'none';
       const schedBtn = document.getElementById('btn-schedule-day');
       if (schedBtn) schedBtn.style.display = currentRole === 'admin' ? '' : 'none';
+      const cleanBtn = document.getElementById('btn-clean-agenda');
+      if (cleanBtn) cleanBtn.style.display = currentRole === 'admin' ? '' : 'none';
       await loadLiveMatches();
       subscribeLiveMatches();
     }
@@ -5336,4 +5380,4 @@
     </div>
   </div>
 </body>
-</html>
+</html
