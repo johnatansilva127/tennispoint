@@ -1403,6 +1403,100 @@
     .my-cat-emblem { width: 56px; height: 56px; border-radius: 50%; background: var(--accent-bg); border: 1px solid var(--accent-dim); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 800; font-size: 22px; color: var(--accent); }
     .my-cat-info .my-cat-name { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--text); }
     .my-cat-info .my-cat-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ===== TELA: Jogos Ao Vivo ===== */
+    @keyframes live-pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 999px;
+      background: rgba(255,92,92,.18);
+      color: #ff5c5c; font-weight: 700; font-size: 11px;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .live-badge::before {
+      content: ''; width: 8px; height: 8px; border-radius: 50%;
+      background: #ff5c5c; animation: live-pulse 1.2s ease-in-out infinite;
+    }
+    .live-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 16px 16px 14px;
+      margin-bottom: 14px;
+    }
+    .live-card-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-bottom: 12px; font-size: 12px; color: var(--text-muted);
+    }
+    .live-card-head .meta { display: flex; align-items: center; gap: 8px; }
+    .live-row {
+      display: grid; grid-template-columns: 1fr auto auto auto;
+      gap: 10px; align-items: center; padding: 8px 0;
+    }
+    .live-row + .live-row { border-top: 1px dashed var(--border); }
+    .live-row.is-winner { background: linear-gradient(90deg, var(--accent-bg), transparent); border-radius: 12px; padding-left: 8px; margin-left: -8px; }
+    .live-player-name { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--text); }
+    .live-player-name.is-winner-color { color: var(--accent); }
+    .live-set-cell {
+      min-width: 32px; height: 36px; padding: 0 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--field); border: 1px solid var(--field-border);
+      border-radius: 10px; font-family: var(--font-display); font-weight: 700;
+      color: var(--text); font-size: 16px;
+    }
+    .live-set-cell.is-tb { background: rgba(255,181,71,.10); border-color: rgba(255,181,71,.30); color: #ffb547; }
+    .live-empty {
+      padding: 28px 22px; text-align: center;
+      background: var(--surface); border: 1px dashed var(--border);
+      border-radius: var(--radius-card); color: var(--text-muted);
+    }
+    .live-empty .icon { font-size: 36px; margin-bottom: 8px; opacity: .7; }
+    .live-actions {
+      display: flex; gap: 8px; margin-top: 12px;
+    }
+    .live-actions button {
+      flex: 1; padding: 10px; border-radius: 12px;
+      font-family: var(--font-body); font-weight: 600; font-size: 13px;
+      border: 1px solid var(--field-border); background: var(--field);
+      color: var(--text); cursor: pointer;
+    }
+    .live-actions button.primary {
+      background: var(--accent); color: var(--bg-0); border-color: var(--accent);
+    }
+    .live-actions button.danger { color: #ff5c5c; border-color: rgba(255,92,92,.3); }
+    .start-live-btn {
+      width: 100%; padding: 14px; border-radius: 14px;
+      background: var(--accent); color: var(--bg-0);
+      border: 0; font-family: var(--font-body); font-weight: 700; font-size: 14px;
+      cursor: pointer; margin-bottom: 16px;
+    }
+    .start-live-btn:hover { background: var(--accent-soft); }
+    .live-step {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px; margin-bottom: 8px; cursor: pointer;
+    }
+    .live-step:hover { border-color: var(--accent-dim); }
+    .live-step .step-title { font-weight: 700; color: var(--text); }
+    .live-step .step-sub { color: var(--text-muted); font-size: 12px; margin-top: 3px; }
+    .game-toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; background: var(--field); border-radius: 10px;
+      margin-bottom: 10px; font-size: 13px; color: var(--text-muted);
+    }
+    .game-counter {
+      display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px;
+      align-items: center; padding: 10px; background: var(--surface-2);
+      border-radius: 10px; margin-top: 8px;
+    }
+    .game-counter button {
+      padding: 14px 18px; border-radius: 10px;
+      background: var(--field); border: 1px solid var(--field-border);
+      color: var(--text); font-family: var(--font-display); font-weight: 700;
+      font-size: 15px; cursor: pointer;
+    }
+    .game-counter button.plus { background: var(--accent); color: var(--bg-0); border-color: var(--accent); }
+    .game-counter .game-score { font-family: var(--font-display); font-weight: 800; font-size: 28px; text-align: center; }
+
   </style>
 </head>
 <body>
@@ -1715,6 +1809,53 @@
     <!-- ============================================ -->
     <!-- BOTTOM NAV (compartilhada, oculta no login) -->
     <!-- ============================================ -->
+
+    <!-- ============================================ -->
+    <!-- TELA: JOGOS AO VIVO -->
+    <!-- ============================================ -->
+    <div class="screen" id="screen-live">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-btn" onclick="openDrawer()" aria-label="Abrir menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>
+            </svg>
+          </button>
+        </div>
+        <div class="topbar-center">
+          <span class="topbar-title">JOGOS <em>AO VIVO</em></span>
+        </div>
+        <div class="topbar-right">
+          <button class="icon-btn" aria-label="Atualizar" onclick="loadLiveMatches()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="home-content">
+        <section class="hero">
+          <div class="role-tag"><span class="live-badge" style="background:transparent;padding:0">AO VIVO</span></div>
+          <h1 class="hero-title">JOGOS <em>HOJE</em></h1>
+          <p class="hero-sub" id="live-sub">Acompanhe os jogos em andamento</p>
+        </section>
+
+        <button class="start-live-btn" id="btn-start-live" style="display:none" onclick="openStartLiveModal()">
+          + Iniciar jogo ao vivo
+        </button>
+
+        <div id="live-matches-list">
+          <div class="live-empty">
+            <div class="icon">🎾</div>
+            <div style="font-weight:600;color:var(--text);margin-bottom:4px">Nenhum jogo em andamento</div>
+            <div>Quando o admin iniciar uma partida, ela aparece aqui em tempo real.</div>
+          </div>
+        </div>
+      </main>
+    </div>
+
     <nav class="bottomnav" id="bottomnav" style="display: none;">
       <button class="nav-item is-active" onclick="goHome()">
         <span class="nav-emoji">🏠</span><span>Início</span>
@@ -1723,7 +1864,7 @@
         <span class="nav-emoji">🏆</span><span>Torneio</span>
       </button>
       <div class="nav-cta">
-        <button class="nav-cta-btn" aria-label="Ação rápida">🎾</button>
+        <button class="nav-cta-btn" aria-label="Jogos ao vivo" onclick="goToLive()">🎾</button>
       </div>
       <button class="nav-item">
         <span class="nav-emoji">📅</span><span>Quadras</span>
@@ -1846,6 +1987,368 @@
 
       // Se o usuario ainda usa email institucional, sugere trocar pelo pessoal
       maybeShowUpdateEmailModal();
+    }
+
+
+    // ===========================
+    // JOGOS AO VIVO
+    // ===========================
+    let _liveSub = null;
+    let _liveMatches = [];
+    let _liveEditing = null; // { id, m, activeSet, gameP1, gameP2, gameMode }
+    let _finalWinner = null;
+    let _startStep = null; // 'bracket' | 'avulso'
+
+    async function goToLive() {
+      showScreen('screen-live');
+      document.querySelectorAll('.nav-item').forEach(it => it.classList.remove('is-active'));
+      const startBtn = document.getElementById('btn-start-live');
+      if (startBtn) startBtn.style.display = currentRole === 'admin' ? '' : 'none';
+      await loadLiveMatches();
+      subscribeLiveMatches();
+    }
+
+    async function loadLiveMatches() {
+      try {
+        const { data, error } = await sb
+          .from('matches')
+          .select('id, bracket_id, round_code, match_no, player1_name, player2_name, score, status, court_id, scheduled_when, is_final')
+          .eq('status', 'in_progress')
+          .order('created_at', { ascending: false });
+        if (error) { console.error('loadLiveMatches', error); return; }
+        // resolver categoria via brackets cache
+        _liveMatches = data || [];
+        renderLiveMatches();
+      } catch (e) { console.error(e); }
+    }
+
+    function _bracketCat(bracketId) {
+      // tentar achar no categoriesData (carrega via loadMatchesFromDB)
+      // backup: usar CAT_DB_TO_MOCK
+      for (const [mockKey, cat] of Object.entries(categoriesData || {})) {
+        const allMatches = Object.values(cat.matches || {}).flat();
+        if (allMatches.some(m => m._dbId === bracketId)) return cat.short;
+      }
+      return '?';
+    }
+
+    function _liveCatShort(m) {
+      if (!m.bracket_id) return 'Avulso';
+      // procura nas categories carregadas
+      const cats = (dashboardData && dashboardData.categories) || [];
+      // sem mapeamento direto bracket->cat aqui; vamos usar round_code só
+      return m.round_code ? m.round_code.toUpperCase() : '';
+    }
+
+    function renderLiveMatches() {
+      const wrap = document.getElementById('live-matches-list');
+      const sub = document.getElementById('live-sub');
+      if (!wrap) return;
+      if (!_liveMatches.length) {
+        if (sub) sub.textContent = 'Nenhum jogo em andamento agora';
+        wrap.innerHTML = `
+          <div class="live-empty">
+            <div class="icon">🎾</div>
+            <div style="font-weight:600;color:var(--text);margin-bottom:4px">Nenhum jogo em andamento</div>
+            <div>Quando o admin iniciar uma partida, ela aparece aqui em tempo real.</div>
+          </div>`;
+        return;
+      }
+      if (sub) sub.textContent = `${_liveMatches.length} ${_liveMatches.length === 1 ? 'jogo' : 'jogos'} acontecendo agora`;
+      wrap.innerHTML = _liveMatches.map(renderLiveCard).join('');
+    }
+
+    function _parseScore(scoreStr) {
+      try { return JSON.parse(scoreStr || '{}'); } catch { return {}; }
+    }
+
+    function renderLiveCard(m) {
+      const s = _parseScore(m.score);
+      const p1Sets = s.p1 || [null,null,null];
+      const p2Sets = s.p2 || [null,null,null];
+      const round = (m.round_code || '').toUpperCase();
+      const cellsP1 = p1Sets.map((v, i) => `<span class="live-set-cell ${i === 2 ? 'is-tb' : ''}">${v ?? '–'}</span>`).join('');
+      const cellsP2 = p2Sets.map((v, i) => `<span class="live-set-cell ${i === 2 ? 'is-tb' : ''}">${v ?? '–'}</span>`).join('');
+      const adminFooter = currentRole === 'admin' ? `
+        <div class="live-actions">
+          <button onclick="openLiveScoreModal('${m.id}')" class="primary">Atualizar placar</button>
+          <button onclick="openFinalizeLive('${m.id}')" class="danger">Finalizar</button>
+        </div>` : '';
+      return `
+        <article class="live-card" data-id="${m.id}">
+          <div class="live-card-head">
+            <div class="meta"><span class="live-badge">AO VIVO</span><span>${round ? round + ' · ' : ''}#${m.match_no ?? '—'}</span></div>
+            <div>${m.is_final ? '🏆 FINAL' : ''}</div>
+          </div>
+          <div class="live-row">
+            <div class="live-player-name">${m.player1_name || 'Jogador 1'}</div>
+            ${cellsP1}
+          </div>
+          <div class="live-row">
+            <div class="live-player-name">${m.player2_name || 'Jogador 2'}</div>
+            ${cellsP2}
+          </div>
+          ${adminFooter}
+        </article>
+      `;
+    }
+
+    function subscribeLiveMatches() {
+      try {
+        if (_liveSub) { try { sb.removeChannel(_liveSub); } catch (e) {} }
+        _liveSub = sb.channel('live-matches-rt')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, _payload => {
+            // recarregar sem causar muitas chamadas
+            loadLiveMatches();
+          })
+          .subscribe();
+      } catch (e) { console.warn('subscribe live error', e); }
+    }
+
+    // ===========================
+    // Modal: Iniciar jogo ao vivo
+    // ===========================
+    function openStartLiveModal() {
+      document.getElementById('start-live-bd').classList.add('is-open');
+      document.getElementById('start-live-modal').classList.add('is-open');
+      // popular dropdowns
+      const cats = (dashboardData && dashboardData.categories) || [];
+      const catSel = document.getElementById('live-pick-cat');
+      const avulsoCatSel = document.getElementById('avulso-cat');
+      const opts = cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      catSel.innerHTML = opts;
+      avulsoCatSel.innerHTML = opts;
+      document.getElementById('start-live-msg').textContent = '';
+      startLiveStep('bracket');
+    }
+    function closeStartLiveModal() {
+      document.getElementById('start-live-bd').classList.remove('is-open');
+      document.getElementById('start-live-modal').classList.remove('is-open');
+    }
+    function startLiveStep(step) {
+      _startStep = step;
+      document.getElementById('btn-start-live-bracket').classList.toggle('btn-secondary', step !== 'bracket');
+      document.getElementById('btn-start-live-bracket').classList.toggle('btn-primary', step === 'bracket');
+      document.getElementById('btn-start-live-avulso').classList.toggle('btn-secondary', step !== 'avulso');
+      document.getElementById('btn-start-live-avulso').classList.toggle('btn-primary', step === 'avulso');
+      document.getElementById('start-live-step-bracket').style.display = step === 'bracket' ? '' : 'none';
+      document.getElementById('start-live-step-avulso').style.display = step === 'avulso' ? '' : 'none';
+      if (step === 'bracket') renderStartLiveOptions();
+    }
+
+    async function renderStartLiveOptions() {
+      const catId = document.getElementById('live-pick-cat').value;
+      const roundCode = document.getElementById('live-pick-round').value;
+      const list = document.getElementById('live-pick-list');
+      if (!catId) { list.innerHTML = '<div class="sm-sub">Selecione uma categoria</div>'; return; }
+      list.innerHTML = '<div class="sm-sub">Carregando…</div>';
+      // buscar matches scheduled da categoria/rodada
+      const { data: brackets } = await sb.from('brackets').select('id').eq('category_id', catId).limit(1);
+      if (!brackets || !brackets.length) { list.innerHTML = '<div class="sm-sub">Nenhum bracket nessa categoria</div>'; return; }
+      const bracketId = brackets[0].id;
+      const { data: matches, error } = await sb.from('matches')
+        .select('id, match_no, player1_name, player2_name, status, is_bye')
+        .eq('bracket_id', bracketId)
+        .eq('round_code', roundCode)
+        .order('match_no');
+      if (error) { list.innerHTML = '<div class="sm-error">Erro: ' + error.message + '</div>'; return; }
+      const available = (matches || []).filter(m => m.status === 'scheduled' && !m.is_bye);
+      if (!available.length) {
+        list.innerHTML = '<div class="sm-sub">Nenhum jogo disponível nessa rodada (todos finalizados ou em andamento).</div>';
+        return;
+      }
+      list.innerHTML = available.map(m => `
+        <div class="live-step" onclick="startMatchLive('${m.id}')">
+          <div class="step-title">#${m.match_no} · ${m.player1_name || 'TBD'} vs ${m.player2_name || 'TBD'}</div>
+          <div class="step-sub">Clique pra iniciar este jogo ao vivo</div>
+        </div>
+      `).join('');
+    }
+
+    async function startMatchLive(matchId) {
+      const msgEl = document.getElementById('start-live-msg');
+      msgEl.style.color = 'var(--loss)';
+      try {
+        const { error } = await sb.from('matches').update({
+          status: 'in_progress',
+          score: JSON.stringify({ p1: [null,null,null], p2: [null,null,null] }),
+          reported_at: new Date().toISOString(),
+        }).eq('id', matchId);
+        if (error) throw error;
+        msgEl.style.color = 'var(--accent)';
+        msgEl.textContent = 'Jogo iniciado!';
+        setTimeout(() => { closeStartLiveModal(); loadLiveMatches(); }, 600);
+      } catch (e) { msgEl.textContent = 'Erro: ' + (e.message || ''); }
+    }
+
+    async function createAvulsoLive() {
+      const msgEl = document.getElementById('start-live-msg');
+      msgEl.style.color = 'var(--loss)';
+      const p1 = document.getElementById('avulso-p1').value.trim();
+      const p2 = document.getElementById('avulso-p2').value.trim();
+      const catId = document.getElementById('avulso-cat').value;
+      if (!p1 || !p2) { msgEl.textContent = 'Informe os 2 jogadores'; return; }
+      // achar bracket da categoria pra anexar
+      const { data: brackets } = await sb.from('brackets').select('id').eq('category_id', catId).limit(1);
+      if (!brackets || !brackets.length) { msgEl.textContent = 'Categoria sem bracket. Avulso indisponivel.'; return; }
+      try {
+        const { error } = await sb.from('matches').insert({
+          bracket_id: brackets[0].id,
+          round_code: 'live',
+          match_no: Date.now() % 100000,
+          player1_name: p1,
+          player2_name: p2,
+          status: 'in_progress',
+          score: JSON.stringify({ p1: [null,null,null], p2: [null,null,null] }),
+          reported_at: new Date().toISOString(),
+        });
+        if (error) throw error;
+        msgEl.style.color = 'var(--accent)';
+        msgEl.textContent = 'Jogo avulso iniciado!';
+        setTimeout(() => { closeStartLiveModal(); loadLiveMatches(); }, 600);
+      } catch (e) { msgEl.textContent = 'Erro: ' + (e.message || ''); }
+    }
+
+    // ===========================
+    // Modal: Atualizar placar ao vivo
+    // ===========================
+    function openLiveScoreModal(matchId) {
+      if (currentRole !== 'admin') return;
+      const m = _liveMatches.find(x => x.id === matchId);
+      if (!m) return;
+      const s = _parseScore(m.score);
+      const p1Sets = s.p1 || [null,null,null];
+      const p2Sets = s.p2 || [null,null,null];
+      _liveEditing = { id: matchId, m, activeSet: 0, gameP1: p1Sets[0] ?? 0, gameP2: p2Sets[0] ?? 0, gameMode: false };
+
+      document.getElementById('live-score-sub').textContent = `${(m.round_code || '').toUpperCase()} · #${m.match_no || '—'}`;
+      document.getElementById('live-p1-name').textContent = m.player1_name || 'Jogador 1';
+      document.getElementById('live-p2-name').textContent = m.player2_name || 'Jogador 2';
+      document.getElementById('live-add-p1-name').textContent = m.player1_name || 'Jogador 1';
+      document.getElementById('live-add-p2-name').textContent = m.player2_name || 'Jogador 2';
+
+      const setVal = (id, v) => { document.getElementById(id).value = (v !== null && v !== undefined) ? v : ''; };
+      setVal('live-p1-s1', p1Sets[0]); setVal('live-p1-s2', p1Sets[1]); setVal('live-p1-s3', p1Sets[2]);
+      setVal('live-p2-s1', p2Sets[0]); setVal('live-p2-s2', p2Sets[1]); setVal('live-p2-s3', p2Sets[2]);
+      document.getElementById('game-mode-toggle').checked = false;
+      document.getElementById('live-set-mode').style.display = '';
+      document.getElementById('live-game-mode').style.display = 'none';
+      document.getElementById('live-score-msg').textContent = '';
+      setActiveSet(0);
+      _refreshGameDisplay();
+      document.getElementById('live-score-bd').classList.add('is-open');
+      document.getElementById('live-score-modal').classList.add('is-open');
+    }
+    function closeLiveScoreModal() {
+      document.getElementById('live-score-bd').classList.remove('is-open');
+      document.getElementById('live-score-modal').classList.remove('is-open');
+      _liveEditing = null;
+    }
+    function toggleGameMode() {
+      if (!_liveEditing) return;
+      _liveEditing.gameMode = document.getElementById('game-mode-toggle').checked;
+      document.getElementById('live-set-mode').style.display = _liveEditing.gameMode ? 'none' : '';
+      document.getElementById('live-game-mode').style.display = _liveEditing.gameMode ? '' : 'none';
+      if (_liveEditing.gameMode) _refreshGameDisplay();
+    }
+    function setActiveSet(idx) {
+      if (!_liveEditing) return;
+      _liveEditing.activeSet = idx;
+      ['live-set-btn-0','live-set-btn-1','live-set-btn-2'].forEach((bid, i) => {
+        const btn = document.getElementById(bid);
+        btn.classList.toggle('btn-primary', i === idx);
+        btn.classList.toggle('btn-secondary', i !== idx);
+      });
+      const s = _parseScore(_liveEditing.m.score);
+      _liveEditing.gameP1 = (s.p1 || [])[idx] ?? 0;
+      _liveEditing.gameP2 = (s.p2 || [])[idx] ?? 0;
+      _refreshGameDisplay();
+    }
+    function _refreshGameDisplay() {
+      const g1 = document.getElementById('live-game-p1');
+      const g2 = document.getElementById('live-game-p2');
+      if (g1 && _liveEditing) g1.textContent = String(_liveEditing.gameP1 || 0);
+      if (g2 && _liveEditing) g2.textContent = String(_liveEditing.gameP2 || 0);
+    }
+    function addGame(playerNum) {
+      if (!_liveEditing) return;
+      if (playerNum === 1) _liveEditing.gameP1 = (_liveEditing.gameP1 || 0) + 1;
+      else _liveEditing.gameP2 = (_liveEditing.gameP2 || 0) + 1;
+      _refreshGameDisplay();
+      // refletir nos inputs do modo set
+      const idx = _liveEditing.activeSet;
+      document.getElementById(`live-p1-s${idx+1}`).value = _liveEditing.gameP1;
+      document.getElementById(`live-p2-s${idx+1}`).value = _liveEditing.gameP2;
+    }
+    async function saveLiveScore() {
+      if (!_liveEditing) return;
+      const msgEl = document.getElementById('live-score-msg');
+      msgEl.style.color = 'var(--loss)';
+      const read = id => { const v = document.getElementById(id).value; return v === '' ? null : Number(v); };
+      const p1 = [read('live-p1-s1'), read('live-p1-s2'), read('live-p1-s3')];
+      const p2 = [read('live-p2-s1'), read('live-p2-s2'), read('live-p2-s3')];
+      try {
+        const { error } = await sb.from('matches').update({
+          score: JSON.stringify({ p1, p2 }),
+          reported_at: new Date().toISOString(),
+        }).eq('id', _liveEditing.id);
+        if (error) throw error;
+        msgEl.style.color = 'var(--accent)';
+        msgEl.textContent = 'Placar atualizado!';
+        setTimeout(closeLiveScoreModal, 500);
+        // recarrega lista
+        loadLiveMatches();
+      } catch (e) { msgEl.textContent = 'Erro: ' + (e.message || ''); }
+    }
+
+    // ===========================
+    // Modal: Finalizar jogo
+    // ===========================
+    function openFinalizeLive(matchId) {
+      if (currentRole !== 'admin') return;
+      const m = _liveMatches.find(x => x.id === matchId);
+      if (!m) return;
+      _liveEditing = { id: matchId, m };
+      _finalWinner = null;
+      document.getElementById('finalize-live-sub').textContent = `${m.player1_name} vs ${m.player2_name}`;
+      document.getElementById('fin-w1').textContent = m.player1_name || 'Jogador 1';
+      document.getElementById('fin-w2').textContent = m.player2_name || 'Jogador 2';
+      ['fin-w1','fin-w2','fin-wo'].forEach(id => document.getElementById(id).classList.remove('is-on'));
+      document.getElementById('finalize-live-msg').textContent = '';
+      document.getElementById('finalize-live-bd').classList.add('is-open');
+      document.getElementById('finalize-live-modal').classList.add('is-open');
+    }
+    function closeFinalizeLiveModal() {
+      document.getElementById('finalize-live-bd').classList.remove('is-open');
+      document.getElementById('finalize-live-modal').classList.remove('is-open');
+    }
+    function setFinalWinner(w) {
+      _finalWinner = w;
+      ['fin-w1','fin-w2','fin-wo'].forEach(id => document.getElementById(id).classList.remove('is-on'));
+      if (w === 1) document.getElementById('fin-w1').classList.add('is-on');
+      if (w === 2) document.getElementById('fin-w2').classList.add('is-on');
+      if (w === 'wo') document.getElementById('fin-wo').classList.add('is-on');
+    }
+    async function confirmFinalizeLive() {
+      if (!_liveEditing) return;
+      if (!_finalWinner) { document.getElementById('finalize-live-msg').textContent = 'Selecione quem venceu'; return; }
+      const m = _liveEditing.m;
+      const winnerName = (_finalWinner === 1 || _finalWinner === 'wo') ? m.player1_name : m.player2_name;
+      try {
+        await sb.from('matches').update({
+          status: 'completed',
+          winner_name: winnerName,
+          reported_at: new Date().toISOString(),
+        }).eq('id', _liveEditing.id);
+        // Propaga vencedor pras rodadas posteriores (reutiliza funcao existente)
+        // Precisa do catKey — sem isso, pulo a propagacao automatica aqui.
+        closeFinalizeLiveModal();
+        loadLiveMatches();
+        // recarrega categoriesData pra os brackets refletirem
+        await loadMatchesFromDB();
+      } catch (e) {
+        document.getElementById('finalize-live-msg').textContent = 'Erro: ' + (e.message || '');
+      }
     }
 
     // ===========================
@@ -3640,6 +4143,125 @@
       <div class="sm-actions">
         <button class="btn-secondary" onclick="dismissUpdEmailModal()">Depois</button>
         <button class="btn-primary" id="btn-upd-send" onclick="submitNewEmail()">Atualizar e-mail</button>
+      </div>
+    </div>
+  </div>
+
+  
+  <!-- ===== Modal: Iniciar jogo ao vivo (escolher das chaves) ===== -->
+  <div class="score-modal-backdrop" id="start-live-bd" onclick="closeStartLiveModal()"></div>
+  <div class="score-modal" id="start-live-modal" role="dialog" aria-modal="true">
+    <div class="score-modal-card" style="max-width:520px">
+      <h3>Iniciar jogo ao vivo</h3>
+      <div class="sm-sub">Escolha entre os jogos cadastrados nas chaves ou crie um novo (avulso).</div>
+      <div style="display:flex;gap:8px;margin:14px 0">
+        <button id="btn-start-live-bracket" class="btn-primary" style="flex:1" onclick="startLiveStep('bracket')">Das chaves</button>
+        <button id="btn-start-live-avulso" class="btn-secondary" style="flex:1" onclick="startLiveStep('avulso')">Avulso</button>
+      </div>
+
+      <!-- STEP: das chaves -->
+      <div id="start-live-step-bracket" style="display:none">
+        <div class="field" style="margin-top:10px">
+          <label class="sr-label" style="display:block;margin-bottom:6px">Categoria</label>
+          <select id="live-pick-cat" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px" onchange="renderStartLiveOptions()"></select>
+        </div>
+        <div class="field" style="margin-top:8px">
+          <label class="sr-label" style="display:block;margin-bottom:6px">Rodada</label>
+          <select id="live-pick-round" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px" onchange="renderStartLiveOptions()">
+            <option value="r64">R64</option><option value="r32">R32</option>
+            <option value="r16">R16</option><option value="qf">QF</option>
+            <option value="sf">SF</option><option value="f">F</option>
+          </select>
+        </div>
+        <div id="live-pick-list" style="max-height:260px;overflow-y:auto;margin-top:10px"></div>
+      </div>
+
+      <!-- STEP: avulso -->
+      <div id="start-live-step-avulso" style="display:none">
+        <div class="field" style="margin-top:10px"><label class="sr-label" style="display:block;margin-bottom:6px">Jogador 1</label><input id="avulso-p1" placeholder="Nome do jogador 1" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></div>
+        <div class="field" style="margin-top:8px"><label class="sr-label" style="display:block;margin-bottom:6px">Jogador 2</label><input id="avulso-p2" placeholder="Nome do jogador 2" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></div>
+        <div class="field" style="margin-top:8px"><label class="sr-label" style="display:block;margin-bottom:6px">Categoria</label><select id="avulso-cat" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></select></div>
+        <button class="btn-primary" style="width:100%;margin-top:14px" onclick="createAvulsoLive()">Iniciar jogo avulso</button>
+      </div>
+
+      <div id="start-live-msg" class="sm-error"></div>
+      <div class="sm-actions">
+        <button class="btn-secondary" onclick="closeStartLiveModal()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Modal: Editar placar ao vivo ===== -->
+  <div class="score-modal-backdrop" id="live-score-bd" onclick="closeLiveScoreModal()"></div>
+  <div class="score-modal" id="live-score-modal" role="dialog" aria-modal="true">
+    <div class="score-modal-card" style="max-width:520px">
+      <h3>Atualizar placar ao vivo</h3>
+      <div class="sm-sub" id="live-score-sub"></div>
+
+      <div class="game-toggle-row">
+        <span>Modo</span>
+        <label style="display:flex;gap:8px;align-items:center;cursor:pointer">
+          <input type="checkbox" id="game-mode-toggle" onchange="toggleGameMode()">
+          <span>Game a game</span>
+        </label>
+      </div>
+
+      <!-- Modo: Set a Set -->
+      <div id="live-set-mode">
+        <div class="score-row head"><div></div><div class="sh">Set 1</div><div class="sh">Set 2</div><div class="sh">S. Tiebreak</div></div>
+        <div class="score-row">
+          <div class="sr-name" id="live-p1-name">Jogador 1</div>
+          <input type="number" id="live-p1-s1" min="0" max="99" inputmode="numeric">
+          <input type="number" id="live-p1-s2" min="0" max="99" inputmode="numeric">
+          <input type="number" id="live-p1-s3" min="0" max="99" inputmode="numeric">
+        </div>
+        <div class="score-row">
+          <div class="sr-name" id="live-p2-name">Jogador 2</div>
+          <input type="number" id="live-p2-s1" min="0" max="99" inputmode="numeric">
+          <input type="number" id="live-p2-s2" min="0" max="99" inputmode="numeric">
+          <input type="number" id="live-p2-s3" min="0" max="99" inputmode="numeric">
+        </div>
+      </div>
+
+      <!-- Modo: Game a Game -->
+      <div id="live-game-mode" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button type="button" class="btn-secondary" style="flex:1" onclick="setActiveSet(0)" id="live-set-btn-0">Set 1</button>
+          <button type="button" class="btn-secondary" style="flex:1" onclick="setActiveSet(1)" id="live-set-btn-1">Set 2</button>
+          <button type="button" class="btn-secondary" style="flex:1" onclick="setActiveSet(2)" id="live-set-btn-2">S. TB</button>
+        </div>
+        <div class="game-counter">
+          <button onclick="addGame(1)" id="live-add-p1">+1<br><small id="live-add-p1-name" style="font-size:10px;font-weight:400">Jogador 1</small></button>
+          <div class="game-score"><span id="live-game-p1">0</span> <span style="color:var(--text-muted)">x</span> <span id="live-game-p2">0</span></div>
+          <button onclick="addGame(2)" id="live-add-p2">+1<br><small id="live-add-p2-name" style="font-size:10px;font-weight:400">Jogador 2</small></button>
+        </div>
+        <div style="text-align:center;color:var(--text-muted);font-size:11px;margin-top:6px">Toque em +1 a cada game vencido</div>
+      </div>
+
+      <div id="live-score-msg" class="sm-error"></div>
+      <div class="sm-actions">
+        <button class="btn-secondary" onclick="closeLiveScoreModal()">Cancelar</button>
+        <button class="btn-primary" onclick="saveLiveScore()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Modal: Finalizar jogo ===== -->
+  <div class="score-modal-backdrop" id="finalize-live-bd" onclick="closeFinalizeLiveModal()"></div>
+  <div class="score-modal" id="finalize-live-modal" role="dialog" aria-modal="true">
+    <div class="score-modal-card">
+      <h3>Finalizar jogo</h3>
+      <div class="sm-sub" id="finalize-live-sub"></div>
+      <div class="sr-label" style="margin-top:10px">Quem venceu?</div>
+      <div class="winner-row">
+        <button type="button" id="fin-w1" onclick="setFinalWinner(1)">Jogador 1</button>
+        <button type="button" id="fin-w2" onclick="setFinalWinner(2)">Jogador 2</button>
+        <button type="button" id="fin-wo" onclick="setFinalWinner('wo')">W.O.</button>
+      </div>
+      <div class="sm-error" id="finalize-live-msg"></div>
+      <div class="sm-actions">
+        <button class="btn-secondary" onclick="closeFinalizeLiveModal()">Cancelar</button>
+        <button class="btn-primary" onclick="confirmFinalizeLive()">Confirmar</button>
       </div>
     </div>
   </div>
