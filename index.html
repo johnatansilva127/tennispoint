@@ -1390,6 +1390,8 @@
     .sm-actions { display: flex; gap: 10px; margin-top: 16px; }
     .sm-actions .btn-secondary { flex: 1; padding: 14px; border: 1px solid var(--field-border); background: transparent; color: var(--text); border-radius: var(--radius-btn); font-weight: 600; cursor: pointer; }
     .sm-actions .btn-primary { flex: 2; padding: 14px; }
+    .sm-actions .btn-secondary.danger { color: #ff5c5c; border-color: rgba(255,92,92,.4); }
+    .sm-actions .btn-secondary.danger:hover { background: rgba(255,92,92,.08); }
     .sm-error { color: var(--loss); font-size: 12px; min-height: 16px; margin-top: 6px; }
     .match-edit-btn { margin-left: auto; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-dim); border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; letter-spacing: .04em; }
     .match-edit-btn:hover { background: var(--accent); color: #0a0a0a; }
@@ -4695,6 +4697,9 @@
 
       _scoreWinner = m.p1 && m.p1.status === 'win' ? 1 : (m.p2 && m.p2.status === 'win' ? 2 : null);
       _refreshWinnerButtons();
+      // Mostrar botao Limpar somente se ja tem placar salvo
+      const clearBtn = document.getElementById('sm-clear-btn');
+      if (clearBtn) clearBtn.style.display = prevWinner ? '' : 'none';
       document.getElementById('sm-error').textContent = '';
       document.getElementById('score-modal-bd').classList.add('is-open');
       document.getElementById('score-modal').classList.add('is-open');
@@ -4719,6 +4724,56 @@
       const v = document.getElementById(id).value;
       if (v === '' || v === null || v === undefined) return null;
       const n = Number(v); return Number.isFinite(n) ? n : null;
+    }
+
+    async function clearScore() {
+      if (!_scoreEditing) return;
+      const errEl = document.getElementById('sm-error');
+      errEl.textContent = '';
+      const oldWinner = _scoreEditing.previousWinner;
+      if (!oldWinner) {
+        errEl.textContent = 'Nada pra limpar — placar ainda não foi salvo';
+        return;
+      }
+      const m = _scoreEditing.m;
+      const confirmMsg = `Limpar o placar deste jogo (${m.round} #${m.id})? Os sets, vencedor e horário serão zerados.`;
+      if (!confirm(confirmMsg)) return;
+
+      const dbId = _matchDbIndex[_matchIdxKey(_scoreEditing.catKey, _scoreEditing.round, _scoreEditing.matchId)];
+      if (!dbId) { errEl.textContent = 'Match não encontrado no banco.'; return; }
+
+      // Nome draft padrao da rodada (pra reverter a propagação na proxima rodada)
+      const draftName = `Vencedor #${m.id} ${_scoreEditing.round.toUpperCase()}`;
+
+      try {
+        const { error } = await sb.from('matches').update({
+          score: null,
+          winner_name: null,
+          status: 'scheduled',
+          scheduled_when: null,
+          reported_at: null,
+        }).eq('id', dbId);
+        if (error) throw error;
+
+        // Reverte propagacao: troca o nome do oldWinner pelo draft nas rodadas POSTERIORES
+        await propagateWinnerChange(_scoreEditing.catKey, oldWinner, draftName, _scoreEditing.round);
+
+        // Recarrega tudo e re-renderiza
+        await loadMatchesFromDB();
+        if (currentCategory && categoriesData[currentCategory]) {
+          matches = categoriesData[currentCategory].matches;
+        }
+        const activeTab = document.querySelector('.round-tab.is-active');
+        const roundKey = activeTab ? activeTab.dataset.round : _scoreEditing.round;
+        renderRoundTabs();
+        const t = document.querySelector(`.round-tab[data-round="${roundKey}"]`);
+        if (t) t.classList.add('is-active');
+        renderRound(roundKey);
+        closeScoreModal();
+      } catch (e) {
+        console.error(e);
+        errEl.textContent = 'Falha ao limpar: ' + (e.message || '');
+      }
     }
 
     async function saveScore() {
@@ -5229,6 +5284,7 @@
 
       <div class="sm-actions">
         <button class="btn-secondary" onclick="closeScoreModal()">Cancelar</button>
+        <button class="btn-secondary danger" id="sm-clear-btn" onclick="clearScore()" style="display:none">🗑️ Limpar</button>
         <button class="btn-primary" onclick="saveScore()">Salvar resultado</button>
       </div>
     </div>
