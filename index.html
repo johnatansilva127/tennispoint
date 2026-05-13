@@ -1491,9 +1491,13 @@
       border-radius: 14px; padding: 12px 14px;
     }
     .up-time {
-      flex: 0 0 56px;
+      flex: 0 0 60px;
       font-family: var(--font-display); font-weight: 800; font-size: 18px;
       color: var(--accent); text-align: center; line-height: 1.1;
+    }
+    .up-time.is-tbd {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+      color: var(--text-dim); text-transform: uppercase;
     }
     .up-body { flex: 1; min-width: 0; }
     .up-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -2077,17 +2081,25 @@
         // Pega tudo nao-completado em uma chamada — bucketing em JS
         const { data, error } = await sb
           .from('matches')
-          .select('id, bracket_id, round_code, match_no, player1_name, player2_name, score, status, court_id, scheduled_when, is_final')
+          .select('id, bracket_id, round_code, match_no, player1_name, player2_name, score, status, court_id, scheduled_when, is_final, is_bye, meta')
           .neq('status', 'completed')
           .limit(500);
         if (error) { console.error('loadLiveMatches', error); return; }
         const rows = data || [];
+        // Exclui BYE (auto-avanco) e drafts (slots ainda nao resolvidos da rodada anterior)
+        const isPlayable = (m) => {
+          if (m.is_bye) return false;
+          if (m.player1_name === 'BYE' || m.player2_name === 'BYE') return false;
+          if (!m.player1_name || !m.player2_name) return false;
+          if (m.meta && m.meta.is_draft) return false;
+          return true;
+        };
         _liveMatches = rows.filter(m => m.status === 'in_progress');
         _upcomingToday = rows
-          .filter(m => m.status !== 'in_progress' && _isToday(m.scheduled_when))
+          .filter(m => m.status !== 'in_progress' && isPlayable(m) && _isToday(m.scheduled_when))
           .sort(_byScheduledTime);
         _upcomingTBD = rows
-          .filter(m => m.status !== 'in_progress' && !m.scheduled_when)
+          .filter(m => m.status !== 'in_progress' && isPlayable(m) && !m.scheduled_when)
           .slice(0, 30);
         renderLiveMatches();
       } catch (e) { console.error(e); }
@@ -2125,12 +2137,11 @@
       const cat = _matchCatShort(m);
       const round = (m.round_code || '').toUpperCase();
       const parsed = parseScheduledWhen(m.scheduled_when);
-      const timeLabel = opts.noTime
-        ? 'A definir'
-        : (parsed.time ? parsed.time.replace(':', 'h') : 'A definir');
+      const isTbd = opts.noTime || !parsed.time;
+      const timeLabel = isTbd ? 'A<br>definir' : parsed.time.replace(':', 'h');
       return `
         <article class="up-card">
-          <div class="up-time">${timeLabel}</div>
+          <div class="up-time${isTbd ? ' is-tbd' : ''}">${timeLabel}</div>
           <div class="up-body">
             <div class="up-meta">
               ${cat ? `<span class="up-chip">${cat}</span>` : ''}
