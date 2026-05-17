@@ -2813,6 +2813,35 @@
     }
 
     // ===========================
+    // Push: dispara notificacao quando agenda jogo
+    // ===========================
+    async function notifySchedulePush(playerNames, when, catShort) {
+      try {
+        if (!Array.isArray(playerNames) || playerNames.length < 2) return;
+        const cleanNames = playerNames.filter(n => n && n !== 'BYE').slice(0, 2);
+        if (cleanNames.length < 2) return;
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) return;
+        const title = '🎾 Jogo agendado';
+        const body = `${cleanNames[0]} vs ${cleanNames[1]}${when ? ' — ' + when : ''}${catShort ? ' · ' + catShort : ''}`;
+        const url = `${window.location.origin}/`;
+        // Fire-and-forget — nao bloqueia UI
+        fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            player_names: cleanNames,
+            title, body, url, tag: 'tp-schedule',
+          }),
+        }).then(r => r.json()).then(j => console.log('push sent:', j)).catch(e => console.warn('push fail (silent):', e));
+      } catch (e) { console.warn('notifySchedulePush wrap fail', e); }
+    }
+
+    // ===========================
     // Admin: iniciar AO VIVO jogo ja agendado
     // ===========================
     async function startScheduledMatch(matchId) {
@@ -2939,6 +2968,14 @@
         msg.style.color = 'var(--accent)';
         msg.textContent = 'Agendado pra ' + when + '!';
         loadLiveMatches();
+        // Dispara push pros 2 jogadores (fire-and-forget)
+        try {
+          const row = document.querySelector(`.sch-row[data-match-id="${matchId}"]`);
+          const players = row && row.querySelector('.sch-row-title') ? row.querySelector('.sch-row-title').textContent.split('·')[1] : '';
+          // Mais robusto: re-busca o match pelo id pra ter os nomes corretos
+          const { data: mrow } = await sb.from('matches').select('player1_name,player2_name,bracket_id').eq('id', matchId).maybeSingle();
+          if (mrow) notifySchedulePush([mrow.player1_name, mrow.player2_name], when, _bracketIdToCatKey[mrow.bracket_id] ? (categoriesData[_bracketIdToCatKey[mrow.bracket_id]]?.short || '') : '');
+        } catch (e) { /* ignore */ }
       } catch (e) {
         msg.textContent = 'Erro: ' + (e.message || '');
       }
@@ -3003,6 +3040,9 @@
         if (error) throw error;
         msgEl.style.color = 'var(--accent)';
         msgEl.textContent = 'Jogo avulso agendado pra ' + when + '!';
+        // Dispara push pros 2 jogadores (fire-and-forget)
+        const catName = document.querySelector('#sch-avulso-cat option:checked')?.textContent || '';
+        notifySchedulePush([p1, p2], when, catName.replace(/^Cat\.\s*/, ''));
         document.getElementById('sch-avulso-p1').value = '';
         document.getElementById('sch-avulso-p2').value = '';
         document.getElementById('sch-avulso-time').value = '';
