@@ -2656,8 +2656,9 @@
       const p1 = document.getElementById('avulso-p1').value.trim();
       const p2 = document.getElementById('avulso-p2').value.trim();
       const catId = document.getElementById('avulso-cat').value;
-      if (!p1 || !p2) { msgEl.textContent = 'Informe os 2 jogadores'; return; }
-      if (!_isValidName(p1) || !_isValidName(p2)) { msgEl.textContent = 'Nome inválido (2-60 chars, sem caracteres especiais)'; return; }
+      if (!p1 || !p2) { msgEl.textContent = 'Selecione os 2 jogadores'; return; }
+      if (p1 === p2) { msgEl.textContent = 'Jogador 1 e Jogador 2 devem ser diferentes'; return; }
+      if (!_isValidName(p1) || !_isValidName(p2)) { msgEl.textContent = 'Nome inválido'; return; }
       // achar bracket da categoria pra anexar
       const { data: brackets } = await sb.from('brackets').select('id').eq('category_id', catId).limit(1);
       if (!brackets || !brackets.length) { msgEl.textContent = 'Categoria sem bracket. Avulso indisponivel.'; return; }
@@ -2800,9 +2801,13 @@
       const opts = cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
       document.getElementById('sch-day-cat').innerHTML = opts;
       document.getElementById('sch-avulso-cat').innerHTML = opts;
-      document.getElementById('sch-avulso-p1').value = '';
-      document.getElementById('sch-avulso-p2').value = '';
+      // Reset dos selects de jogadores
+      const p1Sel = document.getElementById('sch-avulso-p1');
+      const p2Sel = document.getElementById('sch-avulso-p2');
+      p1Sel.innerHTML = '<option value="">Selecione o jogador 1</option>';
+      p2Sel.innerHTML = '<option value="">Selecione o jogador 2</option>';
       document.getElementById('sch-avulso-time').value = '';
+      loadAvulsoPlayers();
       document.getElementById('sch-day-msg').textContent = '';
       // Default data = hoje
       const _t = new Date();
@@ -2898,6 +2903,36 @@
         msg.textContent = 'Erro: ' + (e.message || '');
       }
     }
+    async function loadAvulsoPlayers() {
+      const catId = document.getElementById('sch-avulso-cat').value;
+      const p1Sel = document.getElementById('sch-avulso-p1');
+      const p2Sel = document.getElementById('sch-avulso-p2');
+      if (!catId) {
+        p1Sel.innerHTML = '<option value="">Selecione o jogador 1</option>';
+        p2Sel.innerHTML = '<option value="">Selecione o jogador 2</option>';
+        return;
+      }
+      try {
+        // Jogadores da categoria principal OU em extra_categories
+        const { data, error } = await sb
+          .from('profiles')
+          .select('id,name,category_id,extra_categories')
+          .eq('role', 'member')
+          .or(`category_id.eq.${catId},extra_categories.cs.{${catId}}`)
+          .order('name');
+        if (error) throw error;
+        const players = (data || []).filter(p => p.name && p.name !== 'BYE');
+        const buildOpts = (placeholder) => '<option value="">' + placeholder + '</option>' +
+          players.map(p => `<option value="${_esc(p.name)}">${_esc(p.name)}</option>`).join('');
+        p1Sel.innerHTML = buildOpts('Selecione o jogador 1');
+        p2Sel.innerHTML = buildOpts('Selecione o jogador 2');
+      } catch (e) {
+        console.error('loadAvulsoPlayers fail', e);
+        p1Sel.innerHTML = '<option value="">(erro ao carregar jogadores)</option>';
+        p2Sel.innerHTML = '<option value="">(erro ao carregar jogadores)</option>';
+      }
+    }
+
     async function scheduleAvulsoMatch() {
       const p1 = document.getElementById('sch-avulso-p1').value.trim();
       const p2 = document.getElementById('sch-avulso-p2').value.trim();
@@ -2907,8 +2942,9 @@
       const msgEl = document.getElementById('sch-day-msg');
       msgEl.style.color = 'var(--loss)';
       if (!date) { msgEl.textContent = 'Selecione a data'; return; }
-      if (!p1 || !p2) { msgEl.textContent = 'Informe os 2 jogadores'; return; }
-      if (!_isValidName(p1) || !_isValidName(p2)) { msgEl.textContent = 'Nome inválido (2-60 chars, sem caracteres especiais)'; return; }
+      if (!p1 || !p2) { msgEl.textContent = 'Selecione os 2 jogadores'; return; }
+      if (p1 === p2) { msgEl.textContent = 'Jogador 1 e Jogador 2 devem ser diferentes'; return; }
+      if (!_isValidName(p1) || !_isValidName(p2)) { msgEl.textContent = 'Nome inválido'; return; }
       if (!time) { msgEl.textContent = 'Informe o horário'; return; }
       const { data: brackets } = await sb.from('brackets').select('id').eq('category_id', catId).limit(1);
       if (!brackets || !brackets.length) { msgEl.textContent = 'Categoria sem bracket'; return; }
@@ -2931,6 +2967,7 @@
         document.getElementById('sch-avulso-p2').value = '';
         document.getElementById('sch-avulso-time').value = '';
         loadLiveMatches();
+        loadAvulsoPlayers();
       } catch (e) {
         msgEl.textContent = 'Erro: ' + (e.message || '');
       }
@@ -5270,10 +5307,10 @@
 
       <!-- STEP: avulso -->
       <div id="sch-step-avulso" style="display:none">
-        <div class="field" style="margin-top:10px"><label class="sr-label" style="display:block;margin-bottom:6px">Jogador 1</label><input id="sch-avulso-p1" placeholder="Nome do jogador 1" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></div>
-        <div class="field" style="margin-top:8px"><label class="sr-label" style="display:block;margin-bottom:6px">Jogador 2</label><input id="sch-avulso-p2" placeholder="Nome do jogador 2" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></div>
+        <div class="field" style="margin-top:10px"><label class="sr-label" style="display:block;margin-bottom:6px">Jogador 1</label><select id="sch-avulso-p1" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"><option value="">Selecione o jogador 1</option></select></div>
+        <div class="field" style="margin-top:8px"><label class="sr-label" style="display:block;margin-bottom:6px">Jogador 2</label><select id="sch-avulso-p2" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"><option value="">Selecione o jogador 2</option></select></div>
         <div style="display:flex;gap:8px;margin-top:8px">
-          <div style="flex:1"><label class="sr-label" style="display:block;margin-bottom:6px">Categoria</label><select id="sch-avulso-cat" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></select></div>
+          <div style="flex:1"><label class="sr-label" style="display:block;margin-bottom:6px">Categoria</label><select id="sch-avulso-cat" onchange="loadAvulsoPlayers()" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></select></div>
           <div style="flex:0 0 130px"><label class="sr-label" style="display:block;margin-bottom:6px">Horário</label><input type="time" id="sch-avulso-time" style="width:100%;height:42px;padding:0 10px;background:var(--field);color:var(--text);border:1px solid var(--field-border);border-radius:var(--radius-field);font-family:inherit;font-size:14px"></div>
         </div>
         <button class="btn-primary" style="width:100%;margin-top:14px" onclick="scheduleAvulsoMatch()">Agendar jogo avulso</button>
@@ -5441,4 +5478,3 @@
   </div>
 </body>
 </html>
-                                                                                                                                                                
