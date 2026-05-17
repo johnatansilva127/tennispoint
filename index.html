@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0f0a" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Tennis Point" />
   <title>Tennis Point — App</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1567,6 +1571,30 @@
       color: var(--accent);
     }
     .profile-msg.is-error { color: var(--loss, #ff5c5c); }
+    .profile-notif-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px;
+      background: var(--field, rgba(255,255,255,0.04));
+      border: 1px solid var(--field-border, rgba(255,255,255,0.12));
+      border-radius: 12px;
+    }
+    .profile-notif-info { flex: 1; min-width: 0; }
+    .profile-notif-title { font-weight: 700; color: var(--text); font-size: 13px; }
+    .profile-notif-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .profile-notif-btn {
+      padding: 8px 14px;
+      background: var(--accent); color: #000;
+      border: none; border-radius: 999px;
+      font-weight: 800; font-size: 12px; cursor: pointer;
+      min-width: 90px;
+    }
+    .profile-notif-btn.is-on {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid rgba(193,242,18,0.5);
+    }
+    .profile-notif-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
     .profile-save-btn {
       margin-top: 6px;
       padding: 12px;
@@ -2049,6 +2077,18 @@
           <div class="profile-field">
             <label class="profile-label">Bio</label>
             <textarea id="profile-bio" class="profile-input" rows="3" placeholder="Conta um pouco sobre você (opcional)" style="resize:vertical;min-height:80px"></textarea>
+          </div>
+
+          <div class="profile-field">
+            <label class="profile-label">Notificações</label>
+            <div class="profile-notif-row">
+              <div class="profile-notif-info">
+                <div class="profile-notif-title" id="profile-notif-title">Receber avisos de jogo</div>
+                <div class="profile-notif-sub" id="profile-notif-sub">Você será avisado quando o admin agendar um jogo seu.</div>
+              </div>
+              <button type="button" class="profile-notif-btn" id="profile-notif-btn" onclick="togglePushNotifications()">Ativar</button>
+            </div>
+            <div class="profile-help" id="profile-notif-help"></div>
           </div>
 
           <div id="profile-msg" class="profile-msg"></div>
@@ -4315,6 +4355,135 @@
     // NAVEGAÇÃO ENTRE TELAS
     // ===========================
     // ===========================
+    // PWA: Service Worker + Web Push
+    // ===========================
+    const VAPID_PUBLIC_KEY = 'BGpEATkST1uXglejotfUmuUznqgkxD5_c__QUq3v-UD-qUDE5uDJuhqukqZPeOwMCyiXyNTj1YE4UDCxJDnjdIw';
+
+    function _urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const raw = atob(base64);
+      const out = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+      return out;
+    }
+
+    let _swRegistration = null;
+    async function _ensureServiceWorker() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        return null;
+      }
+      if (_swRegistration) return _swRegistration;
+      try {
+        _swRegistration = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+        return _swRegistration;
+      } catch (e) {
+        console.warn('SW register fail', e);
+        return null;
+      }
+    }
+    // Registra logo na carga da pagina (silencioso)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => { _ensureServiceWorker(); });
+    }
+
+    function _isPushSupported() {
+      return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    }
+
+    async function _getCurrentSubscription() {
+      const reg = await _ensureServiceWorker();
+      if (!reg) return null;
+      return reg.pushManager.getSubscription();
+    }
+
+    function _subscriptionToPayload(sub) {
+      const json = sub.toJSON();
+      return {
+        endpoint: json.endpoint,
+        p256dh: json.keys && json.keys.p256dh,
+        auth: json.keys && json.keys.auth,
+      };
+    }
+
+    async function refreshNotifButton() {
+      const btn = document.getElementById('profile-notif-btn');
+      const help = document.getElementById('profile-notif-help');
+      const sub = document.getElementById('profile-notif-sub');
+      if (!btn) return;
+      if (!_isPushSupported()) {
+        btn.disabled = true;
+        btn.textContent = 'Indisponível';
+        if (help) help.textContent = 'Seu navegador não suporta notificações push. No iPhone, instale como app na tela inicial primeiro.';
+        return;
+      }
+      const perm = (typeof Notification !== 'undefined') ? Notification.permission : 'default';
+      const existing = await _getCurrentSubscription();
+      if (existing && perm === 'granted') {
+        btn.classList.add('is-on');
+        btn.textContent = 'Desativar';
+        if (help) help.textContent = '✓ Notificações ativas neste dispositivo.';
+      } else if (perm === 'denied') {
+        btn.disabled = true;
+        btn.textContent = 'Bloqueado';
+        if (help) help.textContent = 'Você bloqueou as notificações no navegador. Reabilite nas configurações do site.';
+      } else {
+        btn.classList.remove('is-on');
+        btn.disabled = false;
+        btn.textContent = 'Ativar';
+        if (help) help.textContent = '';
+      }
+    }
+
+    async function togglePushNotifications() {
+      const btn = document.getElementById('profile-notif-btn');
+      const help = document.getElementById('profile-notif-help');
+      if (!_isPushSupported()) { return; }
+      btn.disabled = true;
+      try {
+        const existing = await _getCurrentSubscription();
+        if (existing) {
+          // Desativar: unsubscribe + remove do banco
+          await existing.unsubscribe();
+          await sb.from('push_subscriptions').delete().eq('endpoint', existing.endpoint).eq('user_id', currentUser.id);
+          if (help) help.textContent = 'Notificações desativadas.';
+          await refreshNotifButton();
+          return;
+        }
+        // Ativar: pedir permissão
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') {
+          if (help) help.textContent = 'Permissão negada. Reabilite nas configurações do navegador.';
+          await refreshNotifButton();
+          return;
+        }
+        const reg = await _ensureServiceWorker();
+        if (!reg) throw new Error('SW indisponível');
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: _urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+        const payload = _subscriptionToPayload(sub);
+        const { error } = await sb.from('push_subscriptions').upsert({
+          user_id: currentUser.id,
+          endpoint: payload.endpoint,
+          p256dh: payload.p256dh,
+          auth: payload.auth,
+          user_agent: navigator.userAgent || null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,endpoint' });
+        if (error) throw error;
+        if (help) help.textContent = '✓ Notificações ativadas!';
+        await refreshNotifButton();
+      } catch (e) {
+        console.error('togglePush fail', e);
+        if (help) help.textContent = 'Erro: ' + (e.message || 'tente novamente');
+        btn.disabled = false;
+      }
+    }
+
+    // ===========================
     // MEU PERFIL
     // ===========================
     function openProfileScreen() {
@@ -4327,6 +4496,7 @@
       _renderProfileAvatar(currentUser.avatar_url, currentUser.name || currentUser.email);
       document.getElementById('profile-msg').textContent = '';
       showScreen('screen-profile');
+      refreshNotifButton();
     }
 
     function _renderProfileAvatar(avatarUrl, name) {
